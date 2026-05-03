@@ -24,6 +24,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -40,6 +41,14 @@ from starVLA.dataloader.gr00t_lerobot.mixtures import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _registry_log(message: str) -> None:
+    """Keep registry discovery quiet unless explicitly requested."""
+    if os.getenv("STARVLA_VERBOSE_REGISTRY", "0").lower() in {"1", "true", "yes", "on"}:
+        logger.info(message)
+    else:
+        logger.debug(message)
 
 # ---------------------------------------------------------------------------
 # Mutable copies – will be extended by discovered modules
@@ -101,13 +110,13 @@ def discover_and_merge() -> None:
             if mod:
                 if hasattr(mod, "ROBOT_TYPE_CONFIG_MAP"):
                     ROBOT_TYPE_CONFIG_MAP.update(mod.ROBOT_TYPE_CONFIG_MAP)
-                    logger.info(f"[registry] Loaded data_config from {bench_name}: {list(mod.ROBOT_TYPE_CONFIG_MAP.keys())}")
+                    _registry_log(f"[registry] Loaded data_config from {bench_name}: {list(mod.ROBOT_TYPE_CONFIG_MAP.keys())}")
                 if hasattr(mod, "ROBOT_TYPE_TO_EMBODIMENT_TAG"):
                     ROBOT_TYPE_TO_EMBODIMENT_TAG.update(mod.ROBOT_TYPE_TO_EMBODIMENT_TAG)
-                    logger.info(f"[registry] Loaded embodiment_tags from {bench_name} (data_config): {list(mod.ROBOT_TYPE_TO_EMBODIMENT_TAG.keys())}")
+                    _registry_log(f"[registry] Loaded embodiment_tags from {bench_name} (data_config): {list(mod.ROBOT_TYPE_TO_EMBODIMENT_TAG.keys())}")
                 if hasattr(mod, "DATASET_NAMED_MIXTURES"):
                     DATASET_NAMED_MIXTURES.update(mod.DATASET_NAMED_MIXTURES)
-                    logger.info(f"[registry] Loaded mixtures from {bench_name} (data_config): {list(mod.DATASET_NAMED_MIXTURES.keys())}")
+                    _registry_log(f"[registry] Loaded mixtures from {bench_name} (data_config): {list(mod.DATASET_NAMED_MIXTURES.keys())}")
 
 
 # Run discovery on first import

@@ -38,8 +38,9 @@ from starVLA.model.framework.share_tools import apply_config_compat
 from starVLA.training.trainer_utils.config_tracker import AccessTrackedConfig, wrap_config
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils, build_param_lr_groups, normalize_dotlist_args
 
-deepspeed_plugin = DeepSpeedPlugin()
-accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin)
+use_deepspeed = os.getenv("STARVLA_USE_DEEPSPEED", "true").lower() in {"1", "true", "yes", "on"}
+deepspeed_plugin = DeepSpeedPlugin() if use_deepspeed else None
+accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin) if use_deepspeed else Accelerator()
 accelerator.print(accelerator.state)
 
 # Sane Defaults
@@ -47,6 +48,17 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Initialize logger
 logger = get_logger(__name__)
+
+
+def is_main_process() -> bool:
+    """True for rank 0 and for single-process runs without torch.distributed."""
+    return (not dist.is_available()) or (not dist.is_initialized()) or dist.get_rank() == 0
+
+
+def distributed_barrier() -> None:
+    """Synchronize only when a torch.distributed process group exists."""
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
 
 
 def load_fast_tokenizer():
@@ -58,7 +70,7 @@ def setup_directories(cfg) -> Path:
     cfg.output_dir = os.path.join(cfg.run_root_dir, cfg.run_id)
     output_dir = Path(cfg.output_dir)
 
-    if not dist.is_initialized() or dist.get_rank() == 0:
+    if is_main_process():
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(output_dir / "checkpoints", exist_ok=True)
 
@@ -71,7 +83,7 @@ def prepare_data(cfg, accelerator, output_dir) -> DataLoader:
     vla_train_dataloader = build_dataloader(cfg=cfg, dataset_py=cfg.datasets.vla_data.dataset_py)
 
     accelerator.dataloader_config.dispatch_batches = False
-    dist.barrier()
+    distributed_barrier()
     return vla_train_dataloader
 
 
@@ -86,7 +98,7 @@ def setup_optimizer_and_scheduler(model, cfg) -> Tuple[torch.optim.Optimizer, to
         eps=cfg.trainer.optimizer.eps,
     )
 
-    if dist.is_initialized() and dist.get_rank() == 0:
+    if is_main_process():
         for group in optimizer.param_groups:
             logger.info(f"LR Group {group['name']}: lr={group['lr']}, num_params={len(group['params'])}")
 
@@ -261,7 +273,7 @@ class VLATrainer(TrainerUtils):
 
     def _log_metrics(self, metrics):
         """Record training metrics."""
-        if self.completed_steps % self.config.trainer.logging_frequency == 0 and dist.get_rank() == 0:
+        if self.completed_steps % self.config.trainer.logging_frequency == 0 and is_main_process():
             metrics["learning_rate"] = self.lr_scheduler.get_last_lr()[0]
             metrics["epoch"] = round(self.completed_steps / len(self.vla_train_dataloader), 2)
             wandb.log(metrics, step=self.completed_steps)
@@ -347,7 +359,7 @@ class VLATrainer(TrainerUtils):
             step_metrics["mse_score"] = score / num_pots
 
         del examples
-        dist.barrier()
+        distributed_barrier()
         return step_metrics
 
     def _log_training_config(self):
@@ -428,8 +440,9 @@ def main(cfg) -> None:
     trainer.train()
 
     logger.info("... and that's all, folks!")
-    dist.barrier()
-    dist.destroy_process_group()
+    distributed_barrier()
+    if dist.is_available() and dist.is_initialized():
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

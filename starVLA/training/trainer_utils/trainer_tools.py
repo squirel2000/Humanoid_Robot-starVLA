@@ -110,13 +110,18 @@ def build_param_lr_groups(model, cfg):
 import torch.distributed as dist
 
 
+def _is_main_process() -> bool:
+    """Return True for rank 0 and for local single-process training."""
+    return (not dist.is_available()) or (not dist.is_initialized()) or dist.get_rank() == 0
+
+
 def only_main_process(func):
     """
     decorator: only run in main process (rank=0)
     """
 
     def wrapper(*args, **kwargs):
-        if dist.is_initialized() and dist.get_rank() != 0:
+        if not _is_main_process():
             return None  # non-main process does not execute
         return func(*args, **kwargs)
 
@@ -188,7 +193,7 @@ class TrainerUtils:
                     continue
 
         # accelerator.wait_for_everyone()  # synchronize when distributed training
-        if dist.get_rank == 0:
+        if _is_main_process():
             print(f"🔒 Frozen modules with re pattern: {frozen}")
         return model
 
@@ -198,7 +203,7 @@ class TrainerUtils:
         print the total number of parameters and trainable parameters of the model
         :param model: PyTorch model instance
         """
-        if dist.get_rank() != 0:
+        if not _is_main_process():
             return
         print("📊 model parameter statistics:")
         num_params = sum(p.numel() for p in model.parameters())
@@ -220,7 +225,7 @@ class TrainerUtils:
         """
         if not checkpoint_path:
             return []
-        if dist.get_rank() == 0:
+        if _is_main_process():
             print(f"📦 loading checkpoint: {checkpoint_path}")
         try:
             if _is_safetensors_path(checkpoint_path):
@@ -246,7 +251,7 @@ class TrainerUtils:
                     sub_state_dict = {k[len(prefix) :]: v for k, v in checkpoint.items() if k.startswith(prefix)}
                     if sub_state_dict:
                         module.load_state_dict(sub_state_dict, strict=True)
-                        if dist.get_rank() == 0:
+                        if _is_main_process():
                             print(f"✅ parameters loaded to module '{path}'")
                         loaded_modules.append(path)
                     else:
@@ -256,7 +261,7 @@ class TrainerUtils:
         else:  # full load
             try:
                 model.load_state_dict(checkpoint, strict=False)
-                if dist.get_rank() == 0:
+                if _is_main_process():
                     print("✅ loaded <full_model> model parameters")
                 loaded_modules = ["<full_model>"]
             except Exception as e:

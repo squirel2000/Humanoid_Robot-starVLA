@@ -294,12 +294,22 @@ if __name__ == "__main__":
     model: Qwen_GR00T = Qwen_GR00T(cfg)
     print(model)
 
+    # Keep the standalone smoke test aligned with custom YAMLs. The original
+    # example assumed a fixed 7-D Franka-style action space; OpenArm O6 uses
+    # 13-D right-arm/right-hand actions and may include proprioceptive state.
+    action_dim = int(cfg.framework.action_model.action_dim)
+    state_dim = int(cfg.framework.action_model.state_dim)
+    action_horizon = int(cfg.framework.action_model.action_horizon)
+    include_state = bool(cfg.datasets.vla_data.get("include_state", False)) if hasattr(cfg, "datasets") else False
+
     image = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
     sample = {
-        "action": np.random.uniform(-1, 1, size=(16, 7)).astype(np.float16),
+        "action": np.random.uniform(-1, 1, size=(action_horizon, action_dim)).astype(np.float16),
         "image": [image],
         "lang": "This is a fake instruction for testing.",
     }
+    if include_state:
+        sample["state"] = np.random.uniform(-1, 1, size=(1, state_dim)).astype(np.float16)
     sample2 = sample.copy()
     sample2["lang"] = "Another fake instruction for testing."
 
