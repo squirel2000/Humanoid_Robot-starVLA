@@ -39,8 +39,15 @@ from starVLA.training.trainer_utils.config_tracker import AccessTrackedConfig, w
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils, build_param_lr_groups, normalize_dotlist_args
 
 use_deepspeed = os.getenv("STARVLA_USE_DEEPSPEED", "true").lower() in {"1", "true", "yes", "on"}
+# `accelerate launch --gradient_accumulation_steps` is a no-op outside DeepSpeed,
+# so the launcher bridges the value through STARVLA_GRAD_ACCUM instead.
+grad_accum_steps = int(os.getenv("STARVLA_GRAD_ACCUM", "1"))
 deepspeed_plugin = DeepSpeedPlugin() if use_deepspeed else None
-accelerator = Accelerator(deepspeed_plugin=deepspeed_plugin) if use_deepspeed else Accelerator()
+accelerator = (
+    Accelerator(gradient_accumulation_steps=grad_accum_steps, deepspeed_plugin=deepspeed_plugin)
+    if use_deepspeed
+    else Accelerator(gradient_accumulation_steps=grad_accum_steps)
+)
 accelerator.print(accelerator.state)
 
 # Sane Defaults
