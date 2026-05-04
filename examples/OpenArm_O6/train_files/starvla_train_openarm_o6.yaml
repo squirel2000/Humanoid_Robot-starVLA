@@ -52,8 +52,10 @@ datasets:
     dataset_py: lerobot_datasets
     # Include the 13-D right-side proprioceptive state in the model input.
     include_state: true
-    # data_mix below resolves to /data/gr00t_datasets/OpenArm_O6_CanSorting_dataset_0408.
-    data_root_dir: /data/gr00t_datasets
+    # data_mix below resolves to <data_root_dir>/OpenArm_O6_CanSorting_dataset_0408.
+    # Local path on this RTX 4090 box; override with --datasets.vla_data.data_root_dir
+    # if your dataset lives elsewhere.
+    data_root_dir: /home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection
     data_mix: openarm_o6_cansort_right_only
     # The dataset action values are absolute joint positions, not deltas.
     action_type: abs_qpos

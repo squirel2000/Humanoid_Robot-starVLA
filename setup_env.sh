@@ -2,16 +2,14 @@
 # StarVLA environment setup script
 #
 # Tested configuration:
-#   GPU    : NVIDIA RTX 5090 (Blackwell, sm_100)
-#   Driver : 580.126.09
+#   GPU    : NVIDIA RTX 4090 (Ada, sm_89) / NVIDIA RTX 5090 (Blackwell, sm_100)
 #   CUDA   : 12.8  (nvcc V12.8.93)
 #   Python : 3.10
 #
 # Why PyTorch 2.7.0 instead of the 2.6.0 noted in requirements.txt?
-#   PyTorch 2.6.0 cu124 wheels were built before Blackwell desktop GPUs shipped
-#   and do not include sm_100 kernels. PyTorch 2.7.0 is the first release with
-#   prebuilt Blackwell support. torchvision 0.22.0 is the matching version
-#   (requirements.txt pins 0.21.0 for 2.6.0; that pin is skipped here).
+#   PyTorch 2.7.0 + cu128 provides future-proofing compatibility for integrating 
+#   Isaac-GR00T models in the long run. It natively supports both RTX 4090 (sm_89) 
+#   and RTX 5090 (sm_100). torchvision 0.22.0 is the matching version.
 #
 # Why flash-attn builds from source?
 #   flash-attn 2.7.4.post1 prebuilt wheels only exist for specific torch/CUDA

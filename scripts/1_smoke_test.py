@@ -47,7 +47,7 @@ def main(config: StarVLASmokeTestConfig) -> None:
 
     _run(
         [
-            sys.executable,
+            "python",
             "-c",
             (
                 "import sys, torch; "
@@ -61,10 +61,10 @@ def main(config: StarVLASmokeTestConfig) -> None:
     )
 
     if not config.skip_dataloader:
-        _run([sys.executable, str(DATALOADER_SCRIPT), "--config_yaml", str(config_yaml)], env)
+        _run(["python", str(DATALOADER_SCRIPT), "--config_yaml", str(config_yaml)], env)
 
     if not config.skip_framework:
-        _run([sys.executable, str(FRAMEWORK_SCRIPT), "--config_yaml", str(config_yaml)], env)
+        _run(["python", str(FRAMEWORK_SCRIPT), "--config_yaml", str(config_yaml)], env)
 
     print("Smoke test PASS")
 

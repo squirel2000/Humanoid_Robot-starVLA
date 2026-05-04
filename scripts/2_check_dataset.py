@@ -122,7 +122,7 @@ def print_summary(dataset_root: Path, info: dict, modality: dict) -> None:
 def run_dataloader_check(config_yaml: Path) -> None:
     """Run StarVLA's own dataloader debug script against the OpenArm config."""
     print("== StarVLA dataloader check ==")
-    cmd = [sys.executable, str(DATALOADER_SCRIPT), "--config_yaml", str(config_yaml)]
+    cmd = ["python", str(DATALOADER_SCRIPT), "--config_yaml", str(config_yaml)]
     print(" ".join(cmd))
     subprocess.run(cmd, check=True, env=child_environment(), cwd=REPO_ROOT)
 

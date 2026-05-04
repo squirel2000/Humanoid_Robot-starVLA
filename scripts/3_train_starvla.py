@@ -4,6 +4,18 @@
 The structure intentionally follows Isaac-GR00T's `launch_finetune.py`: tyro
 parses a dataclass config, this launcher maps that config onto the project
 runtime, then hands off to the actual training entry point.
+
+# Example usage (from the repo root with the `starVLA` conda env active):
+conda activate starVLA
+python scripts/3_train_starvla.py \
+    --max_train_steps 10000 \
+    --per_device_batch_size 16 \
+    --gradient_accumulation_steps 2 \
+    --num_warmup_steps 100 \
+    --save_interval 2000 \
+    --eval_interval 1000 \
+    --logging_frequency 100 \
+    --run_id openarm_o6_qwengroot_right_only_bs16
 """
 
 from __future__ import annotations
@@ -29,9 +41,8 @@ def build_accelerate_command(config: StarVLATrainConfig) -> list[str]:
     # in `child_environment`, which the trainer reads when constructing the
     # Accelerator (see train_starvla.py).
     return [
-        sys.executable,
-        "-m",
-        "accelerate.commands.launch",
+        "accelerate",
+        "launch",
         "--num_processes",    str(config.num_processes),
         "--num_machines",     str(config.num_machines),
         "--mixed_precision",  config.mixed_precision,
