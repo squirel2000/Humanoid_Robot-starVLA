@@ -19,7 +19,7 @@ Run example:
         --checkpoint /home/asus/Gits/humanoid_robot/starVLA/results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/checkpoints/steps_48000_pytorch_model.pt \
         --dataset_path /home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/OpenArm_O6_CanSorting_dataset_0408 \
         --trajs 10 --steps 400 \
-        --output_json starvla_eval.json
+        --output_json /home/asus/Gits/humanoid_robot/starVLA/results/Checkpoints/starvla_eval.json
 """
 
 from __future__ import annotations

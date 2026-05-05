@@ -8,14 +8,17 @@ runtime, then hands off to the actual training entry point.
 # Example usage (from the repo root with the `starVLA` conda env active):
 conda activate starVLA
 python scripts/3_train_starvla.py \
-    --max_train_steps 10000 \
+    --run_id openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5 \
+    --max_train_steps 100000 \
     --per_device_batch_size 16 \
     --gradient_accumulation_steps 2 \
-    --num_warmup_steps 100 \
+    --learning_rate_action_model 5e-5 \
+    --weight_decay 1e-5 \
+    --num_warmup_steps 500 \
     --save_interval 2000 \
-    --eval_interval 1000 \
-    --logging_frequency 100 \
-    --run_id openarm_o6_qwengroot_right_only_bs16
+    --eval_interval 2000 \
+    --logging_frequency 500 \
+    --use_wandb
     
 wandb login   # one-time
 wandb sync results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/wandb/wandb/offline-run-20260504_195745-t46bnqcv

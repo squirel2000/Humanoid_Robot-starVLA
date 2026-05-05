@@ -428,7 +428,15 @@ class VLATrainer(TrainerUtils):
                 self.accelerator.clip_grad_norm_(self.model.parameters(), self.config.trainer.gradient_clipping)
 
             self.optimizer.step()
-            self.lr_scheduler.step()
+            # Only advance the LR scheduler at real optimizer-step boundaries.
+            # `optimizer.step()` is a no-op during accumulation (Accelerate
+            # intercepts it via `accumulate(model)`), but `lr_scheduler.step()`
+            # is NOT intercepted — calling it every micro-batch over-advances
+            # the schedule by `gradient_accumulation_steps`. With grad_accum=2,
+            # the scheduler then ran a full cosine period instead of half,
+            # producing the peak→min→peak LR curve seen in W&B.
+            if self.accelerator.sync_gradients:
+                self.lr_scheduler.step()
 
         return {
             "action_dit_loss": action_loss.item(),
