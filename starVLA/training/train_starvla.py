@@ -171,15 +171,40 @@ class VLATrainer(TrainerUtils):
         )
 
     def _init_wandb(self):
-        """Initialize Weights & Biases."""
-        if self.accelerator.is_main_process:
-            wandb.init(
-                name=self.config.run_id,
-                dir=os.path.join(self.config.output_dir, "wandb"),
-                project=self.config.wandb_project,
-                entity=self.config.wandb_entity,
-                group="vla-train",
+        """Initialize Weights & Biases AND TensorBoard.
+
+        We log to both:
+          * wandb — for hosted dashboards. When STARVLA's launcher is invoked
+            with `--use_wandb false`, child_environment sets WANDB_MODE=offline,
+            so the run is captured locally under `<output_dir>/wandb/wandb/
+            offline-run-*/` and can be uploaded later with `wandb sync`.
+          * tensorboard — purely local event files under `<output_dir>/tb/`,
+            no login or sync required. Browse with:
+                tensorboard --logdir <output_dir>/tb
+        """
+        if not self.accelerator.is_main_process:
+            return
+
+        wandb.init(
+            name=self.config.run_id,
+            dir=os.path.join(self.config.output_dir, "wandb"),
+            project=self.config.wandb_project,
+            entity=self.config.wandb_entity,
+            group="vla-train",
+        )
+
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+            tb_dir = os.path.join(self.config.output_dir, "tb")
+            os.makedirs(tb_dir, exist_ok=True)
+            self.tb_writer = SummaryWriter(log_dir=tb_dir)
+            logger.info(f"📈 TensorBoard event files → {tb_dir}")
+        except ImportError:
+            logger.info(
+                "tensorboard not installed; skipping TB logger. "
+                "Install with `pip install tensorboard` to enable."
             )
+            self.tb_writer = None
 
     def _save_initial_configs(self):
         """Save full config and training script at the very start of training."""
@@ -279,11 +304,20 @@ class VLATrainer(TrainerUtils):
         self.accelerator.wait_for_everyone()
 
     def _log_metrics(self, metrics):
-        """Record training metrics."""
+        """Record training metrics to wandb + tensorboard."""
         if self.completed_steps % self.config.trainer.logging_frequency == 0 and is_main_process():
             metrics["learning_rate"] = self.lr_scheduler.get_last_lr()[0]
             metrics["epoch"] = round(self.completed_steps / len(self.vla_train_dataloader), 2)
             wandb.log(metrics, step=self.completed_steps)
+            tb = getattr(self, "tb_writer", None)
+            if tb is not None:
+                # SummaryWriter only takes scalars; skip non-numeric fields.
+                for k, v in metrics.items():
+                    if isinstance(v, (int, float)):
+                        tb.add_scalar(k, v, self.completed_steps)
+                # Ensure events flush at logging_frequency, not whenever the
+                # in-memory queue fills up — useful for live tensorboard.
+                tb.flush()
             logger.info(f"Step {self.completed_steps}, Loss: {metrics})")
 
     def _create_data_iterators(self):

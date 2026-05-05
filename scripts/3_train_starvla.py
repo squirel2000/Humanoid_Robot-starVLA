@@ -16,6 +16,12 @@ python scripts/3_train_starvla.py \
     --eval_interval 1000 \
     --logging_frequency 100 \
     --run_id openarm_o6_qwengroot_right_only_bs16
+    
+wandb login   # one-time
+wandb sync results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/wandb/wandb/offline-run-20260504_195745-t46bnqcv
+
+tensorboard --logdir results/Checkpoints/<run_id>/tb
+# default URL: http://localhost:6006
 """
 
 from __future__ import annotations
@@ -57,6 +63,9 @@ def build_accelerate_command(config: StarVLATrainConfig) -> list[str]:
         "--trainer.num_warmup_steps",                 str(config.num_warmup_steps),
         "--trainer.gradient_clipping",                str(config.gradient_clipping),
         "--trainer.optimizer.weight_decay",           str(config.weight_decay),
+        "--trainer.learning_rate.base",               str(config.learning_rate_base),
+        "--trainer.learning_rate.action_model",       str(config.learning_rate_action_model),
+        "--trainer.learning_rate.qwen_vl_interface",  str(config.learning_rate_qwen_vl),
         "--trainer.save_interval",                    str(config.save_interval),
         "--trainer.eval_interval",                    str(config.eval_interval),
         "--trainer.logging_frequency",                str(config.logging_frequency),

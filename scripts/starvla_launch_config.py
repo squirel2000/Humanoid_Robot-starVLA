@@ -239,8 +239,30 @@ class StarVLATrainConfig:
     num_warmup_steps: int = 100
     """Linear warmup steps for the LR scheduler."""
 
-    weight_decay: float = 1e-8
-    """AdamW weight decay (maps to `trainer.optimizer.weight_decay`)."""
+    weight_decay: float = 1e-5
+    """AdamW weight decay (maps to `trainer.optimizer.weight_decay`).
+
+    Default 1e-5 matches Isaac-GR00T's `FinetuneConfig.weight_decay`. The YAML
+    historically shipped 1e-8 (near-zero), which is fine for short runs but
+    can contribute to action-head divergence on long fine-tunes — exactly the
+    failure mode that nuked the last 2k steps of the 50k OpenArm O6 run.
+    """
+
+    learning_rate_action_model: float = 1.0e-4
+    """LR for the DiT action head (overrides `trainer.learning_rate.action_model`).
+
+    Lower this to 5e-5 if you observe NaN tensors near the end of long runs.
+    """
+
+    learning_rate_qwen_vl: float = 1.0e-5
+    """LR for the QwenVL interface (overrides `trainer.learning_rate.qwen_vl_interface`).
+
+    Only relevant when you set `freeze_modules=""` — otherwise the VLM is
+    frozen and this LR doesn't apply.
+    """
+
+    learning_rate_base: float = 1.0e-5
+    """Default LR for any module not matched by the per-module overrides above."""
 
     gradient_clipping: float = 1.0
     """Global gradient-norm clip threshold."""

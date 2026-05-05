@@ -11,7 +11,7 @@ Why two conda envs:
 Usage:
     conda activate starVLA      # any env that has python is fine
     python scripts/5_compare_starvla_vs_n15.py \
-        --starvla-ckpt results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/final_model \
+        --starvla-ckpt results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/checkpoints/steps_48000_pytorch_model.pt \
         --trajs 10 --steps 400
 """
 
