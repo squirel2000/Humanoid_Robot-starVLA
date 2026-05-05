@@ -10,6 +10,8 @@ The layout mirrors Isaac-GR00T's launch/config split:
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,8 +24,13 @@ REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 
 # Default model / data paths
 DEFAULT_BASE_VLM = REPO_ROOT / "playground/Pretrained_models/Qwen3-VL-4B-Instruct"
+# HuggingFace repo id for the default VLM. Kept aligned with DEFAULT_BASE_VLM
+# so the auto-download helper below knows what to fetch.
+# IMPORTANT: This must be a Qwen3-VL build that is API-compatible with the
+# StarVLA QwenGR00T framework (which expects Qwen3-VL Instruct + flash-attn).
+DEFAULT_BASE_VLM_REPO_ID = "Qwen/Qwen3-VL-4B-Instruct"
 DEFAULT_CONFIG   = REPO_ROOT / "examples/OpenArm_O6/train_files/starvla_train_openarm_o6.yaml"
-DEFAULT_DATASET  = Path("/data/gr00t_datasets/OpenArm_O6_CanSorting_dataset_0408")
+DEFAULT_DATASET  = Path("/home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/OpenArm_O6_CanSorting_dataset_0408")
 DEFAULT_OUT_DIR  = REPO_ROOT / "results/Checkpoints"
 
 # StarVLA entry-point scripts (avoids repeating long paths in every launcher)
@@ -36,19 +43,112 @@ TRAIN_SCRIPT      = REPO_ROOT / "starVLA/training/train_starvla.py"
 # Shared validation
 # ---------------------------------------------------------------------------
 
-def check_base_vlm(base_vlm: Path) -> None:
+def _vlm_is_complete(base_vlm: Path) -> bool:
+    """Return True only if the base VLM directory has both metadata and shards."""
     if not base_vlm.is_dir():
+        return False
+    index = base_vlm / "model.safetensors.index.json"
+    if not index.is_file():
+        # Single-shard checkpoints land here. A lone model.safetensors counts.
+        return (base_vlm / "model.safetensors").is_file()
+    return bool(list(base_vlm.glob("model-*.safetensors")))
+
+
+def download_base_vlm(
+    base_vlm: Path,
+    repo_id: str = DEFAULT_BASE_VLM_REPO_ID,
+) -> None:
+    """Download the Qwen3-VL VLM into ``base_vlm`` with live progress.
+
+    Streams ``huggingface-cli download`` stdout to the terminal so the user can
+    see per-shard progress instead of staring at a frozen prompt. The Qwen3-VL
+    4B instruct shards weigh ~9 GB; on a typical home connection the download
+    takes 5-30 minutes.
+    """
+    # Prefer the modern `hf` CLI; fall back to the older `huggingface-cli` if
+    # someone is on an old huggingface_hub.
+    cli = "hf" if shutil.which("hf") else "huggingface-cli"
+    if shutil.which(cli) is None:
+        raise RuntimeError(
+            "Neither `hf` nor `huggingface-cli` found in PATH. Install with:\n"
+            "  pip install -U 'huggingface_hub[cli]'"
+        )
+
+    base_vlm.mkdir(parents=True, exist_ok=True)
+    print("─" * 72, flush=True)
+    print(f"Downloading base VLM '{repo_id}'", flush=True)
+    print(f"  destination : {base_vlm}", flush=True)
+    print(f"  repo size   : ~9 GB (Qwen3-VL 4B Instruct)", flush=True)
+    print(f"  expected    : 5–30 min depending on bandwidth.", flush=True)
+    print("─" * 72, flush=True)
+
+    cmd = [
+        cli,
+        "download",
+        repo_id,
+        "--local-dir",
+        str(base_vlm),
+    ]
+
+    # Enable hf_transfer (Rust-based parallel chunked download) when the
+    # package is installed. On slow links, this is 5-10x faster than the pure
+    # Python downloader.
+    download_env = os.environ.copy()
+    try:
+        import importlib
+        importlib.import_module("hf_transfer")
+        download_env["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+        print("[check_base_vlm] hf_transfer available → parallel download enabled.", flush=True)
+    except ImportError:
+        print(
+            "[check_base_vlm] hf_transfer not installed; using single-stream download.\n"
+            "  Install for ~10x speedup on slow links:  pip install hf_transfer",
+            flush=True,
+        )
+
+    # No timeout: streaming subprocess.run inherits the parent stdout/stderr so
+    # the hf-cli progress bars render live. Avoid capturing output (would buffer).
+    proc = subprocess.run(cmd, env=download_env)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"huggingface-cli exited with code {proc.returncode}. "
+            f"Re-run after fixing the network / auth issue:\n"
+            f"  {' '.join(cmd)}"
+        )
+
+    if not _vlm_is_complete(base_vlm):
+        raise RuntimeError(
+            f"Download finished but {base_vlm} still has no weight shards. "
+            f"Inspect the directory and retry:\n"
+            f"  ls {base_vlm}"
+        )
+    print(f"✓ VLM ready at {base_vlm}", flush=True)
+
+
+def check_base_vlm(base_vlm: Path, *, auto_download: bool = True) -> None:
+    """Validate that ``base_vlm`` contains a usable Qwen3-VL checkpoint.
+
+    If the directory is missing or holds only the metadata files (model.safetensors.index.json
+    without the matching shards), this will trigger a fresh download by default.
+    Set ``auto_download=False`` to surface a hard error instead — useful for CI.
+    """
+    if _vlm_is_complete(base_vlm):
+        return
+
+    reason = (
+        "directory does not exist" if not base_vlm.is_dir()
+        else "weight shards (model-*.safetensors) are missing"
+    )
+    print(f"[check_base_vlm] base VLM at {base_vlm}: {reason}.", flush=True)
+
+    if not auto_download:
         raise FileNotFoundError(
-            f"base VLM not found at {base_vlm}\n"
+            f"base VLM not ready at {base_vlm} ({reason}). "
             f"Download it with:\n"
-            f"  huggingface-cli download Qwen/Qwen3-VL-4B-Instruct --local-dir {base_vlm}"
+            f"  huggingface-cli download {DEFAULT_BASE_VLM_REPO_ID} --local-dir {base_vlm}"
         )
-    if (base_vlm / "model.safetensors.index.json").is_file() and not list(base_vlm.glob("model-*.safetensors")):
-        raise FileNotFoundError(
-            f"base VLM metadata exists, but safetensors weight shards are missing in {base_vlm}\n"
-            f"Complete the download with:\n"
-            f"  huggingface-cli download Qwen/Qwen3-VL-4B-Instruct --local-dir {base_vlm}"
-        )
+
+    download_base_vlm(base_vlm)
 
 
 # ---------------------------------------------------------------------------
@@ -130,10 +230,10 @@ class StarVLATrainConfig:
     max_train_steps: int = 10000
     """Total optimizer steps."""
 
-    per_device_batch_size: int = 4
+    per_device_batch_size: int = 16
     """Per-GPU batch size. Keep small on 32GB GPUs."""
 
-    gradient_accumulation_steps: int = 1
+    gradient_accumulation_steps: int = 2
     """Forward passes accumulated before each optimizer step (passed to Accelerate)."""
 
     num_warmup_steps: int = 100
