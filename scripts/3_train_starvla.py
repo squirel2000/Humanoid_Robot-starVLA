@@ -16,6 +16,7 @@ python scripts/3_train_starvla.py \
     --weight_decay 1e-5 \
     --num_warmup_steps 500 \
     --save_interval 2000 \
+    --max_checkpoints_to_keep 5 \
     --eval_interval 2000 \
     --logging_frequency 500 \
     --use_wandb
@@ -70,6 +71,7 @@ def build_accelerate_command(config: StarVLATrainConfig) -> list[str]:
         "--trainer.learning_rate.action_model",       str(config.learning_rate_action_model),
         "--trainer.learning_rate.qwen_vl_interface",  str(config.learning_rate_qwen_vl),
         "--trainer.save_interval",                    str(config.save_interval),
+        "--trainer.max_checkpoints_to_keep",           str(config.max_checkpoints_to_keep),
         "--trainer.eval_interval",                    str(config.eval_interval),
         "--trainer.logging_frequency",                str(config.logging_frequency),
         "--run_root_dir",                             str(config.output_dir.resolve()),
@@ -93,6 +95,12 @@ def main(config: StarVLATrainConfig) -> None:
     print(f"precision    : {config.mixed_precision} (deepspeed={use_deepspeed})")
     print(f"steps        : {config.max_train_steps} (warmup {config.num_warmup_steps})")
     print(f"batch/device : {config.per_device_batch_size} x grad_accum {config.gradient_accumulation_steps}")
+    checkpoint_retention = (
+        f"keep latest {config.max_checkpoints_to_keep}"
+        if config.max_checkpoints_to_keep > 0
+        else "keep all"
+    )
+    print(f"checkpoints  : every {config.save_interval} steps, {checkpoint_retention}")
     print(f"freeze       : {config.freeze_modules or '<none>'}")
     print(f"wandb        : {'online' if config.use_wandb else 'offline'} ({config.wandb_project})")
     print()

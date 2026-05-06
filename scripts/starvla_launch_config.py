@@ -277,6 +277,9 @@ class StarVLATrainConfig:
     save_interval: int = 2000
     """Checkpoint interval in training steps."""
 
+    max_checkpoints_to_keep: int = 5
+    """Number of latest periodic checkpoints to keep. Set <=0 to disable pruning."""
+
     eval_interval: int = 1000
     """Action-eval interval in training steps."""
 

@@ -14,6 +14,7 @@ Conventions:
 import argparse
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Tuple
@@ -55,6 +56,8 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Initialize logger
 logger = get_logger(__name__)
+
+CHECKPOINT_FILE_RE = re.compile(r"^steps_(\d+)_(?:pytorch_model\.pt|model\.safetensors)$")
 
 
 def is_main_process() -> bool:
@@ -274,11 +277,56 @@ class VLATrainer(TrainerUtils):
         self.accelerator.load_state(checkpoint_path)
         self.accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
 
+    def _list_checkpoints(self) -> list[tuple[int, Path]]:
+        """Return periodic checkpoints sorted by training step."""
+        checkpoint_dir = Path(self.checkpoint_dir)
+        if not checkpoint_dir.exists():
+            return []
+
+        checkpoints = []
+        for path in checkpoint_dir.iterdir():
+            if not path.is_file():
+                continue
+            match = CHECKPOINT_FILE_RE.match(path.name)
+            if match:
+                checkpoints.append((int(match.group(1)), path))
+
+        checkpoints.sort(key=lambda item: item[0])
+        return checkpoints
+
+    def _checkpoint_keep_limit(self) -> int | None:
+        """Configured number of periodic checkpoints to retain; <=0 disables pruning."""
+        raw_limit = getattr(self.config.trainer, "max_checkpoints_to_keep", 5)
+        if raw_limit is None:
+            return None
+
+        keep_limit = int(raw_limit)
+        return keep_limit if keep_limit > 0 else None
+
+    def _prune_old_checkpoints(self, keep_limit: int | None = None) -> None:
+        """Delete oldest periodic checkpoints beyond the configured retention limit."""
+        if keep_limit is None:
+            keep_limit = self._checkpoint_keep_limit()
+        if keep_limit is None:
+            return
+
+        checkpoints = self._list_checkpoints()
+        stale_checkpoints = checkpoints if keep_limit <= 0 else checkpoints[:-keep_limit]
+        for step, path in stale_checkpoints:
+            try:
+                path.unlink()
+                logger.info(f"Deleted old checkpoint at step {step}: {path}")
+            except FileNotFoundError:
+                continue
+
     def _save_checkpoint(self):
         """Save current training state."""
         if self.accelerator.is_main_process:
             save_format = getattr(self.config.trainer, "save_format", "pt")
             checkpoint_path = os.path.join(self.checkpoint_dir, f"steps_{self.completed_steps}")
+            keep_limit = self._checkpoint_keep_limit()
+            if keep_limit is not None:
+                self._prune_old_checkpoints(keep_limit=max(keep_limit - 1, 0))
 
             state_dict = self.accelerator.get_state_dict(self.model)
             if save_format == "safetensors":
@@ -289,6 +337,8 @@ class VLATrainer(TrainerUtils):
                 torch.save(state_dict, checkpoint_path + "_pytorch_model.pt")
             else:
                 raise ValueError(f"Unsupported save_format `{save_format}`. Expected `pt` or `safetensors`.")
+
+            self._prune_old_checkpoints(keep_limit=keep_limit)
 
             summary_data = {"steps": self.completed_steps}
             with open(os.path.join(self.config.output_dir, "summary.jsonl"), "a") as f:
