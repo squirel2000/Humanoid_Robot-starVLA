@@ -4,6 +4,7 @@
 
 import logging
 import os
+import inspect
 import time
 from typing import Dict, Optional, Tuple
 
@@ -44,20 +45,45 @@ class WebsocketClientPolicy:
 
             try:
                 headers = {"Authorization": f"Api-Key {self._api_key}"} if self._api_key else None
-                conn = websockets.sync.client.connect(
-                    self._uri,
-                    compression=None,
-                    max_size=None,
-                    additional_headers=headers,
-                    open_timeout=150,
-                    ping_interval=20,
-                    ping_timeout=20,
-                )
+                conn = websockets.sync.client.connect(self._uri, **self._connect_kwargs(headers))
                 metadata = msgpack_numpy.unpackb(conn.recv())
                 return conn, metadata
             except ConnectionRefusedError:
                 logging.info(f"Still waiting for server {self._uri} ...")
                 time.sleep(2)
+
+    @staticmethod
+    def _connect_kwargs(headers: Optional[Dict]) -> Dict:
+        """Return kwargs supported by the installed websockets version.
+
+        ``websockets.sync.client.connect`` changed keyword support across
+        releases.  Some versions accept ``additional_headers`` and keepalive
+        ping kwargs, while older sync clients reject them.  Build the richest
+        compatible kwargs instead of pinning the whole environment to one
+        websockets release.
+        """
+        preferred = {
+            "compression": None,
+            "max_size": None,
+            "open_timeout": 150,
+            "ping_interval": 20,
+            "ping_timeout": 20,
+        }
+
+        params = inspect.signature(websockets.sync.client.connect).parameters
+        if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values()):
+            kwargs = dict(preferred)
+            if headers:
+                kwargs["additional_headers"] = headers
+            return kwargs
+
+        kwargs = {key: value for key, value in preferred.items() if key in params}
+        if headers:
+            if "additional_headers" in params:
+                kwargs["additional_headers"] = headers
+            elif "extra_headers" in params:
+                kwargs["extra_headers"] = headers
+        return kwargs
 
     def close(self) -> None:
         try:

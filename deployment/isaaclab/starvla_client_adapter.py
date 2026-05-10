@@ -206,11 +206,13 @@ class StarVLAClientAdapter:
 
     def _build_starvla_example(self, obs: dict[str, Any]) -> dict[str, Any]:
         """Convert IsaacLab obs dict to StarVLA's `predict_action` example."""
-        # 1) Image: GR00T-side passes (1, H, W, C) uint8. StarVLA's
-        #    `to_pil_preserve` accepts numpy HxWxC or a PIL.Image, so squeeze.
+        # 1) Image: GR00T-side passes (1, H, W, C) uint8. StarVLA's Qwen
+        #    interfaces expect one list of camera views per example, so a
+        #    single IsaacLab camera becomes [HxWxC].
         img = obs["video.camera"]
         if isinstance(img, np.ndarray) and img.ndim == 4:
             img = img[0]
+        img = [img]
 
         # 2) Language: IsaacLab passes a list[str] under this key; StarVLA
         #    expects a single string per example.
