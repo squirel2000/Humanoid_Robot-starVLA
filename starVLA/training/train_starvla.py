@@ -435,19 +435,28 @@ class VLATrainer(TrainerUtils):
         self._finalize_training()
 
     def eval_action_model(self, step_metrics: dict = None) -> float:
-        """Run simple action-eval on current batch and attach score to metrics."""
+        """Run simple action-eval on current batch and attach score to metrics.
+
+        `mse_score` is classical per-scalar MSE in normalized-action space, so
+        it is directly comparable to the offline eval's MSE (after the eval's
+        q99-inverse rescaling). Previously this logged
+        `np.linalg.norm(diff) / num_pots`, which is a monotonic-but-uninterpretable
+        rescaling — see `TrainerUtils.mse` for the replacement.
+        """
         examples = self._get_next_batch()
         actions = [example["action"] for example in examples]
+        # NOTE: previously also passed `use_ddim=True, num_ddim_steps=20` here,
+        # but `Qwen_GR00T.predict_action` does not forward kwargs and the
+        # FlowmatchingActionHead has no DDIM branch — those args were silently
+        # dropped and made the metric look fancier than it actually was.
         output_dict = self.accelerator.unwrap_model(self.model).predict_action(
-            examples=examples, use_ddim=True, num_ddim_steps=20
+            examples=examples,
         )
 
         if self.accelerator.is_main_process:
             normalized_actions = output_dict["normalized_actions"]
             actions = np.array(actions)
-            num_pots = np.prod(actions.shape)
-            score = TrainerUtils.euclidean_distance(normalized_actions, actions)
-            step_metrics["mse_score"] = score / num_pots
+            step_metrics["mse_score"] = TrainerUtils.mse(normalized_actions, actions)
 
         del examples
         distributed_barrier()

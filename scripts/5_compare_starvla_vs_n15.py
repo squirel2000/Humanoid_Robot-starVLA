@@ -10,9 +10,11 @@ Why two conda envs:
 
 Usage:
     conda activate starVLA      # any env that has python is fine
-    python scripts/5_compare_starvla_vs_n15.py \
-        --starvla-ckpt results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/checkpoints/steps_48000_pytorch_model.pt \
-        --trajs 10 --steps 400
+    python /home/asus/Gits/IsaacLab-GR00T/starVLA/scripts/5_compare_starvla_vs_n15.py \
+        --starvla-ckpt /home/asus/Gits/IsaacLab-GR00T/starVLA/results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5/final_model \
+        --n15-ckpt /home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T/outputs/openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408/checkpoint-100000 \
+        --trajs 10 \
+        --steps 150
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ DEFAULT_DATASET = Path(
 )
 DEFAULT_N15_CKPT = Path(
     "/home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T/outputs/"
-    "openarm_o6_cansorting_N1_5_100k_fft_dataset_0408/checkpoint-100000"
+    "openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408/checkpoint-100000"
 )
 DEFAULT_N15_REPO = Path("/home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T")
 
@@ -73,7 +75,7 @@ class CompareConfig:
     action_horizon: int = 16
     """Chunk size used to unroll predictions."""
 
-    plot: bool = False
+    plot: bool = True
     """Save per-DOF plots from both evaluators."""
 
     starvla_env: str = "starVLA"

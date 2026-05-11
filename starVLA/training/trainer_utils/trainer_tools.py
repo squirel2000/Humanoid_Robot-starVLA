@@ -296,6 +296,17 @@ class TrainerUtils:
         return np.linalg.norm(predicted - ground_truth)
 
     @staticmethod
+    def mse(predicted: np.ndarray, ground_truth: np.ndarray) -> float:
+        """Classical per-scalar mean squared error in the input's space.
+
+        The trainer previously logged `euclidean_distance / num_pots`, which
+        is `RMSE_per_scalar / sqrt(num_pots)` — monotonic with quality but
+        with no interpretable unit. This helper is what `mse_score` should
+        actually be: a number directly comparable to offline eval MSE.
+        """
+        return float(np.mean((predicted - ground_truth) ** 2))
+
+    @staticmethod
     def _reset_dataloader(dataloader, epoch_counter):
         """safe reset dataloader iterator"""
         # 1. update epoch counter

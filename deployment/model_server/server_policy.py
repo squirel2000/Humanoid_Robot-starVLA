@@ -23,6 +23,14 @@ def main(args) -> None:
         args.ckpt_path,
     )
 
+    # Override sampling steps. The flow-matching head's saved default is 4,
+    # which is fast but noisy — at deploy time we typically want 16–20 for
+    # cleaner trajectories. Setting this here mutates the live action head
+    # without touching the checkpoint's saved config.
+    if args.denoising_steps is not None and hasattr(vla, "action_model"):
+        vla.action_model.num_inference_timesteps = int(args.denoising_steps)
+        logging.info("Set action_model.num_inference_timesteps = %d", args.denoising_steps)
+
     if args.use_bf16:  # False
         vla = vla.to(torch.bfloat16)
     vla = vla.to("cuda").eval()
@@ -49,6 +57,14 @@ def build_argparser():
     parser.add_argument("--port", type=int, default=10093)
     parser.add_argument("--use_bf16", action="store_true")
     parser.add_argument("--idle_timeout", type=int, default=1800, help="Idle timeout in seconds, -1 means never close")
+    parser.add_argument(
+        "--denoising_steps",
+        type=int,
+        default=None,
+        help="Override action_model.num_inference_timesteps at startup. "
+             "Checkpoint's saved default (typically 4) is too noisy for "
+             "open-loop rollouts; 16–20 gives much cleaner trajectories.",
+    )
     return parser
 
 

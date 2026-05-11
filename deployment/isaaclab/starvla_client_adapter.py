@@ -148,6 +148,21 @@ class StarVLAClientAdapter:
                 f"dataset_statistics.json?"
             )
 
+        # Training applies q99 normalization to state via the dataloader's
+        # StateActionTransform; the model's state_encoder was trained on
+        # normalized inputs in roughly [-1, 1]. IsaacLab sends raw joint
+        # angles, so we must reproduce the forward q99 transform here or the
+        # model sees out-of-distribution proprioception and outputs garbage.
+        state_stats = stats[embodiment_key]["state"]
+        self._state_q01 = np.asarray(state_stats["q01"], dtype=np.float32)
+        self._state_q99 = np.asarray(state_stats["q99"], dtype=np.float32)
+        if self._state_q01.shape[0] != action_dim or self._state_q99.shape[0] != action_dim:
+            raise ValueError(
+                f"state stats dim {self._state_q01.shape[0]} does not match "
+                f"action_split total {action_dim}. The OpenArm O6 right-only "
+                f"setup expects state and action to share the same layout."
+            )
+
         logging.info(
             "[StarVLAClientAdapter] connected to %s:%d, server metadata=%s, "
             "action_split=%s",
@@ -237,10 +252,23 @@ class StarVLAClientAdapter:
                     f"obs['{key}'] has shape {v.shape}, expected ({dim},)"
                 )
             state_parts.append(v)
-        state = np.concatenate(state_parts, axis=0)[None, :]  # (1, state_dim)
+        raw_state = np.concatenate(state_parts, axis=0)  # (state_dim,)
+        state = self._q99_normalize_state(raw_state)[None, :]  # (1, state_dim)
 
         return {"image": img, "lang": lang, "state": state}
 
     def _inverse_q99(self, normalized: np.ndarray) -> np.ndarray:
         """StarVLA's q99 inverse: y = (x + 1) / 2 * (q99 - q01) + q01."""
         return (normalized + 1.0) / 2.0 * (self._q99 - self._q01) + self._q01
+
+    def _q99_normalize_state(self, raw: np.ndarray) -> np.ndarray:
+        """Forward q99 transform on state (matches dataloader's StateActionTransform).
+
+        Maps [q01, q99] → [-1, 1] linearly. Dimensions with q01 == q99 are
+        left unchanged so the model sees the same constant it was trained on.
+        """
+        denom = self._state_q99 - self._state_q01
+        mask = denom != 0
+        out = raw.astype(np.float32).copy()
+        out[mask] = 2.0 * (raw[mask] - self._state_q01[mask]) / denom[mask] - 1.0
+        return out

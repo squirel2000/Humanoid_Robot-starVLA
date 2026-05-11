@@ -16,10 +16,10 @@ Run example:
 
     conda activate starVLA
     python scripts/4_eval_starvla_traj.py \
-        --checkpoint /home/asus/Gits/humanoid_robot/starVLA/results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/checkpoints/steps_48000_pytorch_model.pt \
+        --checkpoint /home/asus/Gits/IsaacLab-GR00T/starVLA/results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5/checkpoints/steps_100000_pytorch_model.pt\
         --dataset_path /home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/OpenArm_O6_CanSorting_dataset_0408 \
         --trajs 10 --steps 400 \
-        --output_json /home/asus/Gits/humanoid_robot/starVLA/results/Checkpoints/starvla_eval.json
+        --output_json /home/asus/Gits/IsaacLab-GR00T/starVLA/results/Checkpoints/starvla_eval.json
 """
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ class EvalConfig:
     denoising_steps: int | None = None
     """Override the model's diffusion denoising steps. None = keep the YAML default."""
 
-    plot: bool = False
+    plot: bool = True
     """Save per-DOF prediction plots to <output_dir>/plots/."""
 
     output_json: Path | None = None
@@ -286,8 +286,15 @@ def _load_model(config_yaml: Path, state_dict_path: Path, denoising_steps: int |
     return model
 
 
-def _build_dataset(robot_type: str, dataset_path: Path) -> LeRobotSingleDataset:
-    """Build the StarVLA dataset object (raw mode, no transforms applied)."""
+def _build_dataset(robot_type: str, dataset_path: Path, include_state: bool) -> LeRobotSingleDataset:
+    """Build the StarVLA dataset object (raw mode, no transforms applied).
+
+    `include_state` must mirror the YAML's `datasets.vla_data.include_state`:
+    when True, `_pack_sample` adds the q99-normalized proprioception under
+    `sample["state"]`. Models trained with state expect it at inference too —
+    dropping it silently makes the action head run without proprioception and
+    produces near-untrained-quality predictions.
+    """
     if robot_type not in ROBOT_TYPE_CONFIG_MAP:
         raise KeyError(
             f"robot_type '{robot_type}' not in ROBOT_TYPE_CONFIG_MAP. "
@@ -302,7 +309,7 @@ def _build_dataset(robot_type: str, dataset_path: Path) -> LeRobotSingleDataset:
         embodiment_tag=embodiment,
         video_backend="torchvision_av",
         delete_pause_frame=False,
-        data_cfg={"video_backend": "torchvision_av"},
+        data_cfg={"video_backend": "torchvision_av", "include_state": include_state},
     )
 
 
@@ -476,8 +483,15 @@ def main(cfg: EvalConfig) -> int:
     )
     q01, q99 = _load_q99_stats(stats_path, embodiment_key_name)
 
+    # Must mirror training: if the model was trained with proprioception
+    # (datasets.vla_data.include_state: true), the dataset has to add a "state"
+    # key to each sample or the model runs without state and produces garbage.
+    yaml_cfg = OmegaConf.load(yaml_path)
+    include_state = bool(yaml_cfg.datasets.vla_data.get("include_state", False))
+    print(f"include_state  : {include_state} (from {yaml_path.name})")
+
     model = _load_model(yaml_path, state_dict_path, cfg.denoising_steps, device)
-    dataset = _build_dataset(cfg.robot_type, cfg.dataset_path)
+    dataset = _build_dataset(cfg.robot_type, cfg.dataset_path, include_state=include_state)
 
     plot_dir = cfg.output_dir / "plots" if cfg.plot else None
 
