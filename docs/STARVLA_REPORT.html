@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarVLA — Comprehensive Technical Report</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f7f8fa;
+    --bg-code: #f1f3f5;
+    --border: #e4e7eb;
+    --text: #1f2328;
+    --text-muted: #57606a;
+    --accent: #0969da;
+    --accent-soft: #ddf4ff;
+    --good: #1a7f37;
+    --warn: #9a6700;
+    --bad:  #cf222e;
+    --good-bg: #dafbe1;
+    --warn-bg: #fff8c5;
+    --bad-bg:  #ffebe9;
+    --pretrained: #1a7f37;
+    --pretrained-soft: #c3f0cf;
+    --cold: #cf222e;
+    --cold-soft: #ffd6d2;
+    --neutral: #6e7781;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+                 Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 40px 96px 40px;
+  }
+  header {
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header h1 {
+    margin: 0 0 8px 0;
+    font-size: 34px;
+    letter-spacing: -0.015em;
+    background: linear-gradient(120deg, var(--accent) 0%, #6f42c1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header .subtitle {
+    color: var(--text-muted);
+    font-size: 16px;
+  }
+  header .meta {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  h2 {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    margin: 48px 0 18px 0;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    margin: 30px 0 12px 0;
+    font-size: 18px;
+    color: var(--text);
+  }
+  h4 {
+    margin: 18px 0 8px 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  p { margin: 8px 0 14px 0; }
+  code, pre {
+    font-family: SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  code {
+    background: var(--bg-code);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #b3471c;
+  }
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 12px 0 16px 0;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0 22px 0;
+    font-size: 14px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border);
+  }
+  th, td {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--bg-soft);
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+  }
+  tr:last-child td { border-bottom: none; }
+  ul, ol { margin: 8px 0 14px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  .toc {
+    background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-soft) 100%);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 24px;
+    margin-bottom: 32px;
+  }
+  .toc strong { color: var(--accent); }
+  .toc ol { margin: 6px 0 0 0; padding-left: 22px; }
+  .toc li { margin: 4px 0; }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .callout.good { border-left-color: var(--good); background: var(--good-bg); }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+  .callout.bad  { border-left-color: var(--bad);  background: var(--bad-bg); }
+  .callout .title { font-weight: 600; margin-bottom: 4px; display: block; }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 14px 0 20px 0;
+  }
+  .grid4 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin: 14px 0 20px 0;
+  }
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    background: var(--bg-soft);
+    transition: box-shadow 0.15s ease;
+  }
+  .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+  .card h3 { margin-top: 0; }
+  .figure {
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, #fdfdfd 0%, var(--bg-soft) 100%);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 18px 0 24px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  .figure .caption {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    font-style: italic;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    margin-right: 6px;
+    font-weight: 500;
+  }
+  .tag.good { color: var(--good); background: var(--good-bg); border-color: #aceebb; }
+  .tag.warn { color: var(--warn); background: var(--warn-bg); border-color: #f0d34d; }
+  .tag.bad  { color: var(--bad);  background: var(--bad-bg);  border-color: #ffb1ad; }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin: 10px 0 14px 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    justify-content: center;
+  }
+  .legend .swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: -2px;
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .pros-cons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .pros-cons .pros, .pros-cons .cons {
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  .pros-cons .pros { background: var(--good-bg); border-left: 4px solid var(--good); }
+  .pros-cons .cons { background: var(--bad-bg);  border-left: 4px solid var(--bad); }
+  .pros-cons h4 { margin: 0 0 6px 0; color: inherit; }
+  .pros-cons ul { padding-left: 20px; margin: 4px 0; }
+  .pros-cons li { font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>StarVLA — Comprehensive Technical Report</h1>
+  <div class="subtitle">
+    A Lego-like codebase for Vision-Language-Action model development.
+    Framework, comparison with Isaac-GR00T N1.5, advantages, limitations,
+    and a concrete improvement plan.
+  </div>
+  <div class="meta">
+    Compiled from the StarVLA documentation, arXiv paper, and empirical
+    findings on the OpenArm O6 can-sorting task.
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#architecture">Framework Architecture</a></li>
+    <li><a href="#paradigms">Four Shipping Paradigms</a></li>
+    <li><a href="#config">QwenGR00T vs GR00T N1.5 — Configuration</a></li>
+    <li><a href="#pretraining">Pretraining State (cold vs warm)</a></li>
+    <li><a href="#training">Training Pipeline</a></li>
+    <li><a href="#advantages">Advantages</a></li>
+    <li><a href="#limitations">Shortcomings &amp; Limitations</a></li>
+    <li><a href="#comparison">Architecture Comparison with Annotated Pros / Cons</a></li>
+    <li><a href="#improvement">Recommendations for Improvement</a></li>
+    <li><a href="#findings">Empirical Findings — OpenArm O6 Debug Session</a></li>
+    <li><a href="#references">References</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="overview">1. Overview</h2>
+
+<p>
+<strong>StarVLA</strong> is a research codebase that treats Vision-Language-Action (VLA)
+models the way PyTorch treats neural networks: as a collection of swappable
+building blocks rather than a monolithic stack. A VLA extends a Vision-Language
+Model (VLM) so it can not only "see" and "speak" but also "act" — that is, take
+an image plus a natural-language instruction and emit a continuous robot
+action sequence.
+</p>
+
+<p>
+Per the project's own framing, StarVLA introduces
+<em>"a backbone-action-head decomposition, where a shared vision-language
+backbone encodes the scene and instruction, and a pluggable action head
+maps the resulting representation to motor commands."</em>
+The same backbone can drive different action heads; the same head can be
+mounted on different backbones. This is the "Lego" part.
+</p>
+
+<div class="callout">
+  <span class="title">Output shape</span>
+  Actions are emitted as a tensor of shape
+  <code>[batch, action_horizon, action_dim]</code> — typically a chunk of
+  8–16 future joint-space targets per inference call, which an outer loop
+  executes open-loop before re-querying the policy.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="architecture">2. Framework Architecture</h2>
+
+<p>StarVLA is structured around four replaceable layers:</p>
+
+<div class="figure">
+  <svg viewBox="0 0 920 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="StarVLA framework decomposition">
+    <defs>
+      <linearGradient id="gradBackbone" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/>
+      </linearGradient>
+      <linearGradient id="gradAdapter" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fde68a"/>
+      </linearGradient>
+      <linearGradient id="gradHead" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#e9d5ff"/><stop offset="100%" stop-color="#d8b4fe"/>
+      </linearGradient>
+      <linearGradient id="gradIO" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#f3f4f6"/><stop offset="100%" stop-color="#e5e7eb"/>
+      </linearGradient>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 Z" fill="#6e7781"/>
+      </marker>
+    </defs>
+
+    <!-- Input row -->
+    <g font-family="Inter, system-ui, sans-serif" font-size="13">
+      <rect x="40"  y="30" width="200" height="56" rx="10" fill="url(#gradIO)" stroke="#9ca3af"/>
+      <text x="140" y="55" text-anchor="middle" font-weight="600">Image</text>
+      <text x="140" y="74" text-anchor="middle" fill="#57606a">[H × W × 3]</text>
+
+      <rect x="270" y="30" width="200" height="56" rx="10" fill="url(#gradIO)" stroke="#9ca3af"/>
+      <text x="370" y="55" text-anchor="middle" font-weight="600">Language</text>
+      <text x="370" y="74" text-anchor="middle" fill="#57606a">"pick and sort the red can"</text>
+
+      <rect x="500" y="30" width="200" height="56" rx="10" fill="url(#gradIO)" stroke="#9ca3af"/>
+      <text x="600" y="55" text-anchor="middle" font-weight="600">Proprioception</text>
+      <text x="600" y="74" text-anchor="middle" fill="#57606a">[state_dim]</text>
+
+      <!-- arrows from inputs into backbone -->
+      <path d="M140 86 L140 110 L370 110 L370 130" stroke="#6e7781" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+      <path d="M370 86 L370 130" stroke="#6e7781" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+      <path d="M600 86 L600 110 L370 110 L370 130" stroke="#6e7781" stroke-width="1.6" fill="none" stroke-dasharray="4 3"/>
+
+      <!-- Backbone -->
+      <rect x="140" y="130" width="460" height="60" rx="12" fill="url(#gradBackbone)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="370" y="156" text-anchor="middle" font-weight="700" font-size="14">Backbone (pluggable)</text>
+      <text x="370" y="176" text-anchor="middle" font-size="12" fill="#1e3a8a">Qwen3-VL  ·  Qwen2.5-VL  ·  Florence-2  ·  Cosmos-Predict2 (world model)</text>
+
+      <!-- arrow to adapter -->
+      <path d="M370 190 L370 220" stroke="#6e7781" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+
+      <!-- Adapter -->
+      <rect x="220" y="222" width="300" height="40" rx="10" fill="url(#gradAdapter)" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="370" y="246" text-anchor="middle" font-weight="600">VL hidden states → action conditioning</text>
+
+      <!-- arrow to head -->
+      <path d="M370 262 L370 290" stroke="#6e7781" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+
+      <!-- Action head -->
+      <rect x="140" y="290" width="460" height="60" rx="12" fill="url(#gradHead)" stroke="#9333ea" stroke-width="1.5"/>
+      <text x="370" y="316" text-anchor="middle" font-weight="700" font-size="14">Action Head (pluggable)</text>
+      <text x="370" y="336" text-anchor="middle" font-size="12" fill="#6b21a8">FAST  ·  OFT  ·  π (flow-matching DiT)  ·  GR00T (dual-system DiT)</text>
+
+      <!-- arrow to output -->
+      <path d="M370 350 L370 376" stroke="#6e7781" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+
+      <!-- Output -->
+      <rect x="240" y="376" width="260" height="30" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+      <text x="370" y="396" text-anchor="middle" font-weight="600" fill="#14532d">
+        Action chunk [B, T, action_dim]
+      </text>
+
+      <!-- Dataloader on right -->
+      <rect x="720" y="160" width="180" height="200" rx="12" fill="#f1f5f9" stroke="#475569" stroke-dasharray="5 4"/>
+      <text x="810" y="190" text-anchor="middle" font-weight="700" font-size="13">Dataloader</text>
+      <text x="810" y="212" text-anchor="middle" font-size="12" fill="#334155">LeRobot mixtures</text>
+      <text x="810" y="232" text-anchor="middle" font-size="12" fill="#334155">multi-embodiment</text>
+      <text x="810" y="254" text-anchor="middle" font-size="12" fill="#334155">q99 / min_max / etc.</text>
+      <text x="810" y="276" text-anchor="middle" font-size="12" fill="#334155">video resize/aug</text>
+      <text x="810" y="298" text-anchor="middle" font-size="12" fill="#334155">_pack_sample → </text>
+      <text x="810" y="316" text-anchor="middle" font-size="12" fill="#334155">{image, lang,</text>
+      <text x="810" y="334" text-anchor="middle" font-size="12" fill="#334155"> state, action}</text>
+
+      <path d="M720 230 L600 230" stroke="#6e7781" stroke-width="1.6" fill="none" marker-end="url(#arr)" stroke-dasharray="4 3"/>
+    </g>
+  </svg>
+  <div class="caption">Figure 1 — StarVLA's four-layer decomposition. The backbone and action
+  head are independently swappable; the dataloader provides a unified sample
+  schema across robots.</div>
+</div>
+
+<h3>2.1 Backbone</h3>
+<p>
+The backbone is a fully pretrained vision-language model (or, optionally, a
+world model). In the codebase's reference recipe for OpenArm O6 it is
+<code>Qwen/Qwen3-VL-4B-Instruct</code> — a 4-billion-parameter VLM trained on
+broad web-scale image + text + video data. The backbone produces a sequence
+of multimodal hidden states that the action head cross-attends to.
+</p>
+
+<h3>2.2 Action Head</h3>
+<p>
+Four heads ship in-tree, each implementing a different action-modeling
+philosophy. Heads vary from a few-MLP-layers continuous regressor (OFT) to
+a 16-layer flow-matching transformer (GR00T). They all consume the
+backbone's hidden states and a current proprioception vector ("state"), and
+produce normalized action chunks.
+</p>
+
+<h3>2.3 Dataloader</h3>
+<p>
+StarVLA uses the LeRobot data format and supports mixture training across
+multiple embodiments. Normalization is configured per-modality
+(<code>q99</code>, <code>min_max</code>, <code>mean_std</code>, or
+<code>binary</code>). The dataloader applies transforms (resize, normalize)
+inside a <code>ComposedModalityTransform</code> and returns samples in a
+common <code>{image, lang, state, action}</code> schema after a final
+<code>_pack_sample</code> step.
+</p>
+
+<h3>2.4 Framework "Glue"</h3>
+<p>
+A <em>Framework</em> class (e.g. <code>QwenGR00T</code>, <code>QwenOFT</code>,
+<code>QwenPI</code>) wires a specific backbone to a specific action head and
+implements <code>forward()</code> and <code>predict_action()</code>. Per the
+project FAQ, "data preprocessing takes &lt;1% time in profiling; keeping it
+inside the Framework allows model-specific handling without leaking
+assumptions into the dataloader."
+</p>
+
+<!-- ============================================================ -->
+<h2 id="paradigms">3. Four Shipping Paradigms</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h3>StarVLA-FAST</h3>
+    <p>
+      <span class="tag">discrete</span><span class="tag">autoregressive</span>
+    </p>
+    <p>
+      Treats the action stream as discrete tokens emitted from the LLM
+      vocabulary. Fastest training (just next-token loss), no separate head.
+      Trade-off: discretization noise on fine motor commands.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>StarVLA-OFT</h3>
+    <p>
+      <span class="tag">continuous</span><span class="tag">regression</span>
+    </p>
+    <p>
+      Lightweight MLP-style head on top of the VLM's hidden states, trained
+      with L1 regression. Simple, very fast inference, surprisingly strong
+      benchmark results (LIBERO 96.6%). Trade-off: deterministic output, no
+      multi-modal distribution over actions.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>StarVLA-π</h3>
+    <p>
+      <span class="tag">flow-matching</span><span class="tag">layerwise</span>
+    </p>
+    <p>
+      A layer-wise cross-DiT "expert" trained with flow matching. The
+      action head sees the VLM features at multiple depths via cross-attention.
+      More parameters, more expressive distribution. Trade-off: more compute
+      at inference.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>StarVLA-GR00T</h3>
+    <p>
+      <span class="tag">flow-matching</span><span class="tag">dual-system</span>
+    </p>
+    <p>
+      Dual-system "System 1 / System 2" inspired by the GR00T family. The VLM
+      acts as the slower "thinker" and a flow-matching DiT acts as the faster
+      "doer". This is the paradigm used for the OpenArm O6 work in this
+      repository.
+    </p>
+  </div>
+</div>
+
+<div class="callout warn">
+  <span class="title">Important: published paradigms ≠ pretrained weights</span>
+  The names FAST / OFT / π / GR00T come from published external papers
+  (Physical Intelligence's π₀, NVIDIA's GR00T, etc.). StarVLA
+  <em>reimplements</em> those architectures inside its framework but does
+  <em>not</em> ship pretrained weights from the original publications. See
+  Section 5 and Q5 of this report for the full implication.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="config">4. QwenGR00T vs Isaac-GR00T N1.5 — Configuration</h2>
+
+<p>
+The two systems are architectural cousins — both pair a pretrained VLM with
+a flow-matching DiT action head. The table below highlights where they
+agree and where they diverge.
+</p>
+
+<table>
+  <tr>
+    <th></th>
+    <th>StarVLA · QwenGR00T (this repo)</th>
+    <th>Isaac-GR00T N1.5</th>
+  </tr>
+  <tr><td>VLM backbone</td>
+      <td>Qwen3-VL-4B-Instruct (~4 B)</td>
+      <td>Eagle 2 (~2 B)</td></tr>
+  <tr><td>VLM training data</td>
+      <td>Web-scale image + text + video (Alibaba)</td>
+      <td>Robotics-tilted instruction tuning (NVIDIA)</td></tr>
+  <tr><td>VLM hidden dim</td>
+      <td>2048</td>
+      <td>~1536 (Eagle 2 default)</td></tr>
+  <tr><td>Action head</td>
+      <td>DiT-B flow-matching, 16 layers, hidden 1024, 157 M params</td>
+      <td>Flow-matching DiT (similar shape, NVIDIA's variant)</td></tr>
+  <tr><td>Action head pretrained?</td>
+      <td><span class="tag bad">No</span> Random init at fine-tune time</td>
+      <td><span class="tag good">Yes</span> NVIDIA's cross-embodiment corpus</td></tr>
+  <tr><td>Sampler</td>
+      <td>Euler (4 inference steps by default; raised to 20)</td>
+      <td>DDIM (4 inference steps)</td></tr>
+  <tr><td>Action / state dim</td>
+      <td>Raw, per-robot (13 / 13 for OpenArm O6)</td>
+      <td>Universal padded (32 / 64)</td></tr>
+  <tr><td>Action horizon</td>
+      <td>16</td>
+      <td>16</td></tr>
+  <tr><td>Normalization</td>
+      <td>q99 (1st/99th percentile → [-1, 1])</td>
+      <td>min_max + action clipping</td></tr>
+  <tr><td>Video augmentation</td>
+      <td>Resize 224 only</td>
+      <td>Resize + 0.95 random crop + color jitter</td></tr>
+  <tr><td>Default freeze policy</td>
+      <td>VLM frozen (recipe before Path A); Path A unfreezes it</td>
+      <td>VLM frozen at fine-tune; head full-FT</td></tr>
+  <tr><td>License</td>
+      <td>MIT (StarVLA) + Qwen3-VL public weights</td>
+      <td>NVIDIA Open Model License</td></tr>
+</table>
+
+<div class="grid2">
+  <div class="card">
+    <h3>QwenGR00T — pros &amp; cons</h3>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>Larger, newer VLM (Qwen3-VL ≈ 4 B) with stronger general
+              vision &amp; language understanding (better MMMU, DocVQA).</li>
+          <li>Higher VLM hidden dim → richer cross-attention conditioning
+              for the action head.</li>
+          <li>Permissive MIT license; fully open weights.</li>
+          <li>Direct action / state dims — no padding overhead.</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>Action head is cold — every fine-tune teaches it "how to
+              denoise actions" from scratch.</li>
+          <li>~2× VLM compute per forward vs Eagle 2.</li>
+          <li>Sampler is plain 4-step Euler; DDIM kwargs are wired in but
+              silently dropped (dead code).</li>
+          <li>No built-in image augmentation; relies entirely on data
+              diversity.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Isaac-GR00T N1.5 — pros &amp; cons</h3>
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>Pros</h4>
+        <ul>
+          <li>Action head pretrained on millions of cross-embodiment robot
+              trajectories — strong prior, fast convergence on small data.</li>
+          <li>Compact VLM (≈ 2 B) → faster inference per step.</li>
+          <li>Built-in color jitter + crop augmentation improves
+              robustness.</li>
+          <li>Universal action padding eases multi-robot transfer.</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>Cons</h4>
+        <ul>
+          <li>Older / smaller VLM — weaker general vision &amp; language
+              understanding than Qwen3-VL.</li>
+          <li>NVIDIA license — usage and redistribution constraints.</li>
+          <li>Padding to 32 / 64 dims wastes capacity for low-DOF robots.</li>
+          <li>Less framework flexibility — single architecture, not a
+              "swap-anything" codebase.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="pretraining">5. Pretraining State (cold vs warm)</h2>
+
+<p>
+This is one of the most important practical points and is often
+misunderstood. StarVLA's individual components arrive at fine-tuning time
+with very different amounts of prior knowledge — visualized below as the
+share of each component that comes "warm" (already trained on robot data),
+"web-pretrained" (trained on internet-scale text+image data), or "cold"
+(random init).
+</p>
+
+<div class="figure">
+  <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Knowledge brought to fine-tune">
+    <defs>
+      <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="6" stroke="#cf222e" stroke-width="2"/>
+      </pattern>
+    </defs>
+    <g font-family="Inter, system-ui, sans-serif" font-size="13">
+
+      <!-- Title -->
+      <text x="440" y="28" text-anchor="middle" font-size="15" font-weight="700">
+        Knowledge brought into fine-tuning — by component
+      </text>
+
+      <!-- StarVLA row -->
+      <text x="20" y="92" font-weight="700" font-size="14">StarVLA · QwenGR00T</text>
+      <text x="20" y="112" font-size="12" fill="#57606a">Total trainable ≈ 4.2 B params</text>
+
+      <!-- bars start at x=260 width 600 -->
+      <!-- VLM portion: ~95% width pretrained -->
+      <rect x="260" y="80" width="540" height="38" fill="#86efac" stroke="#16a34a"/>
+      <text x="530" y="104" text-anchor="middle" font-weight="600" fill="#14532d">
+        Qwen3-VL backbone — web-pretrained (text + image + video)
+      </text>
+      <!-- Adapter -->
+      <rect x="800" y="80" width="20" height="38" fill="url(#hatch)" stroke="#cf222e"/>
+      <text x="810" y="138" text-anchor="middle" font-size="11" fill="#cf222e">adapter</text>
+      <!-- Action head -->
+      <rect x="820" y="80" width="40" height="38" fill="url(#hatch)" stroke="#cf222e"/>
+      <text x="840" y="138" text-anchor="middle" font-size="11" fill="#cf222e">DiT head (cold)</text>
+
+      <!-- N1.5 row -->
+      <text x="20" y="222" font-weight="700" font-size="14">Isaac-GR00T N1.5</text>
+      <text x="20" y="242" font-size="12" fill="#57606a">Total trainable ≈ 3 B params</text>
+
+      <!-- VLM portion -->
+      <rect x="260" y="210" width="380" height="38" fill="#86efac" stroke="#16a34a"/>
+      <text x="450" y="234" text-anchor="middle" font-weight="600" fill="#14532d">
+        Eagle 2 backbone — web + robotics
+      </text>
+      <!-- Action head (warm, robotics pretrained) -->
+      <rect x="640" y="210" width="220" height="38" fill="#1a7f37" stroke="#14532d"/>
+      <text x="750" y="234" text-anchor="middle" font-weight="600" fill="#ffffff">
+        DiT head — robotics-pretrained
+      </text>
+
+      <!-- Axis -->
+      <line x1="260" y1="290" x2="860" y2="290" stroke="#9ca3af"/>
+      <text x="260" y="308" font-size="11" fill="#57606a">0%</text>
+      <text x="860" y="308" text-anchor="end" font-size="11" fill="#57606a">100% of parameters</text>
+
+      <!-- Legend -->
+      <rect x="280" y="328" width="14" height="14" fill="#86efac" stroke="#16a34a"/>
+      <text x="300" y="340" font-size="12" fill="#374151">web-pretrained (general)</text>
+
+      <rect x="450" y="328" width="14" height="14" fill="#1a7f37" stroke="#14532d"/>
+      <text x="470" y="340" font-size="12" fill="#374151">robotics-pretrained (warm)</text>
+
+      <rect x="650" y="328" width="14" height="14" fill="url(#hatch)" stroke="#cf222e"/>
+      <text x="670" y="340" font-size="12" fill="#374151">random init (cold)</text>
+    </g>
+  </svg>
+  <div class="caption">Figure 2 — In QwenGR00T, the action head and adapter
+  are <em>cold</em> at fine-tune time; only the VLM brings prior knowledge
+  (and it knows nothing about robot dynamics). In N1.5, both the VLM and
+  the action head carry robotics-relevant priors into the fine-tune.</div>
+</div>
+
+<div class="callout warn">
+  <span class="title">Why this is the dominant factor in the MSE gap</span>
+  Fine-tuning StarVLA on a small dataset (say 1000 episodes) has to teach
+  the action head <em>how to be an action head from scratch</em>, in
+  addition to learning the specific task. N1.5's head only needs to
+  specialize an already-strong robotics prior. On large benchmark datasets
+  (LIBERO, RoboCasa), StarVLA's cold head can still hit competitive numbers
+  because the data is large enough to learn from scratch — but on small
+  fine-tunes the gap is visible.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="training">6. Training Pipeline</h2>
+
+<h3>6.1 Loss</h3>
+<p>
+The flow-matching action head is trained to predict the velocity field that
+transports random noise into the target action trajectory. Per-batch, each
+ground-truth chunk is repeated <code>repeated_diffusion_steps</code> (default 8)
+times with different noise samples and timesteps; the MSE between the
+predicted and ground-truth velocity is the loss. There is no separate VLM
+loss (<code>loss_scale.vlm: 0.0</code>) in robot-only training, though the
+codebase supports interleaved VLM co-training.
+</p>
+
+<h3>6.2 Optimization</h3>
+<ul>
+  <li><strong>Mixed precision:</strong> bfloat16 autocast around the VLM forward, float32 around the DiT step.</li>
+  <li><strong>Optimizer:</strong> AdamW with per-group learning rates — <code>base</code>, <code>qwen_vl_interface</code>, <code>action_model</code> can each be set independently.</li>
+  <li><strong>Scheduler:</strong> cosine with a minimum learning rate floor.</li>
+  <li><strong>Distributed:</strong> Hugging Face Accelerate; DeepSpeed ZeRO-2 supported for multi-node.</li>
+  <li><strong>Resume:</strong> uses Accelerator's checkpoint mechanism to fully save and restore optimizer state, LR scheduler, and other training state.</li>
+</ul>
+
+<h3>6.3 Freezing</h3>
+<p>
+Backbones are frozen via a comma-separated list under <code>trainer.freeze_modules</code>.
+The single-GPU recipe in the FAQ recommends keeping the VLM frozen and
+training only the action head, especially on 24 GB cards. <em>This is a
+practical compromise, not always the optimal choice</em> — unfreezing the
+VLM is the highest-impact single change for small-data fine-tunes (see
+Section 10 Path A).
+</p>
+
+<!-- ============================================================ -->
+<h2 id="advantages">7. Advantages</h2>
+
+<ul>
+  <li><strong>Modularity by design.</strong> Swapping the backbone or the
+      action head is a config change, not a refactor.</li>
+  <li><strong>Modern VLM.</strong> Qwen3-VL is a current-generation VLM with
+      native dynamic-resolution ViT, long-context language decoder, and strong
+      benchmark results on MMMU / MathVista / DocVQA.</li>
+  <li><strong>Multiple action-head paradigms in one codebase.</strong> FAST,
+      OFT, π, and GR00T heads all share the same data loaders, evaluator, and
+      training loop — apples-to-apples comparison is straightforward.</li>
+  <li><strong>Cross-embodiment ready.</strong> The LeRobot mixture interface
+      allows multi-robot training out of the box, with per-modality
+      normalization stats and embodiment tags.</li>
+  <li><strong>Strong benchmark numbers.</strong> Reported results include
+      LIBERO 96.6%, SimplerEnv WidowX 65%, RoboTwin 2.0 ~88% across heads.</li>
+  <li><strong>Unified sim/real deployment.</strong> Inference exposes a
+      websocket-served policy that uses the same observation/action dictionary
+      format in simulation and on real hardware.</li>
+  <li><strong>Reproducible recipes.</strong> Each benchmark ships with a
+      minimal "single-benchmark" YAML so results can be regenerated without
+      digging through framework internals.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="limitations">8. Shortcomings &amp; Limitations</h2>
+
+<div class="callout bad">
+  <span class="title">The single biggest limitation</span>
+  StarVLA ships with <strong>no pretrained action-head weights</strong>.
+  Every fine-tune starts from a randomly initialized head — a serious
+  disadvantage on tasks where the dataset is too small to teach the head
+  "how to denoise actions" from scratch.
+</div>
+
+<ul>
+  <li><strong>Cold action head.</strong> See callout above and section 5.</li>
+  <li><strong>Default sampler is bare-bones.</strong> Flow-matching uses
+      fixed-step Euler integration. Training code references DDIM kwargs
+      (<code>use_ddim=True, num_ddim_steps=20</code>) that are silently
+      dropped. Raising the step count to 16–20 substantially cleans up
+      open-loop output.</li>
+  <li><strong>VLM frozen by default in the single-GPU recipe.</strong>
+      The 4 B Qwen backbone never adapts to the target visual domain.
+      Unfreezing doubles VRAM but is the highest-impact single change.</li>
+  <li><strong>Cross-embodiment uses unified padding.</strong> Different
+      robots reconciled by zero-padding to a common universal dim.
+      Embodiment-specific structure is not preserved end-to-end.</li>
+  <li><strong>RL fine-tuning is "ongoing".</strong> Released paradigms are
+      behavior-cloning; online RL or DPO-style preference fine-tuning are
+      not yet first-class.</li>
+  <li><strong>Multi-node scaling plateaus.</strong> Around ~79% efficiency
+      beyond 32 GPUs, primarily due to VLM forward dominating step time.</li>
+  <li><strong>Single-GPU is slow.</strong> On 1× RTX 4090 + Qwen2.5-VL-3B,
+      a typical benchmark "may take several days."</li>
+  <li><strong>Confusing default training metric.</strong> Historic
+      <code>mse_score = np.linalg.norm(diff) / num_pots</code> is monotonic
+      with quality but not interpretable. (This repo now logs classical
+      MSE.)</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="comparison">9. Architecture Comparison — Annotated</h2>
+
+<p>
+Side-by-side architecture diagram. Components are color-coded by their
+pretraining state. Pros and cons are pinned to the specific components they
+attach to.
+</p>
+
+<div class="figure">
+  <svg viewBox="0 0 1040 720" xmlns="http://www.w3.org/2000/svg"
+       role="img" aria-label="QwenGR00T vs Isaac-GR00T N1.5 architecture comparison">
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 Z" fill="#475569"/>
+      </marker>
+      <marker id="annoArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 Z" fill="#0969da"/>
+      </marker>
+      <linearGradient id="warmGrad" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#86efac"/><stop offset="100%" stop-color="#22c55e"/>
+      </linearGradient>
+      <linearGradient id="warmGradStrong" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#15803d"/>
+      </linearGradient>
+      <linearGradient id="coldGrad" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#fecaca"/><stop offset="100%" stop-color="#f87171"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Headers -->
+    <g font-family="Inter, system-ui, sans-serif">
+      <rect x="40"  y="20" width="440" height="44" rx="10" fill="#dbeafe" stroke="#3b82f6"/>
+      <text x="260" y="49" text-anchor="middle" font-size="17" font-weight="700" fill="#1e3a8a">StarVLA · QwenGR00T</text>
+
+      <rect x="560" y="20" width="440" height="44" rx="10" fill="#fef3c7" stroke="#f59e0b"/>
+      <text x="780" y="49" text-anchor="middle" font-size="17" font-weight="700" fill="#78350f">Isaac-GR00T N1.5</text>
+
+      <!-- ----- StarVLA column ----- -->
+      <!-- Inputs -->
+      <rect x="60"  y="90" width="120" height="40" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+      <text x="120" y="115" text-anchor="middle" font-size="12">Image 224²</text>
+      <rect x="200" y="90" width="120" height="40" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+      <text x="260" y="115" text-anchor="middle" font-size="12">Language</text>
+      <rect x="340" y="90" width="120" height="40" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+      <text x="400" y="115" text-anchor="middle" font-size="12">State (13-D, q99)</text>
+
+      <!-- VLM -->
+      <rect x="60" y="160" width="400" height="76" rx="12" fill="url(#warmGrad)" stroke="#15803d" stroke-width="1.6"/>
+      <text x="260" y="186" text-anchor="middle" font-size="14" font-weight="700" fill="#14532d">Qwen3-VL-4B-Instruct</text>
+      <text x="260" y="206" text-anchor="middle" font-size="11.5" fill="#14532d">web-pretrained (image + text + video)</text>
+      <text x="260" y="224" text-anchor="middle" font-size="11.5" fill="#14532d">hidden_dim = 2048   ·   ~4 B params</text>
+      <!-- arrow input -> vlm -->
+      <path d="M260 130 L260 160" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Adapter -->
+      <rect x="120" y="260" width="280" height="44" rx="10" fill="url(#coldGrad)" stroke="#dc2626"/>
+      <text x="260" y="287" text-anchor="middle" font-size="12.5" font-weight="600" fill="#7f1d1d">VL → action adapter (cold)</text>
+      <path d="M260 236 L260 260" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- DiT -->
+      <rect x="60" y="330" width="400" height="76" rx="12" fill="url(#coldGrad)" stroke="#dc2626" stroke-width="1.6"/>
+      <text x="260" y="356" text-anchor="middle" font-size="14" font-weight="700" fill="#7f1d1d">DiT-B Action Head (cold)</text>
+      <text x="260" y="376" text-anchor="middle" font-size="11.5" fill="#7f1d1d">flow-matching · 16 layers · hidden 1024</text>
+      <text x="260" y="394" text-anchor="middle" font-size="11.5" fill="#7f1d1d">RANDOM INIT  ·  157 M params</text>
+      <path d="M260 304 L260 330" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Sampler -->
+      <rect x="120" y="430" width="280" height="40" rx="10" fill="#f1f5f9" stroke="#475569" stroke-dasharray="4 3"/>
+      <text x="260" y="455" text-anchor="middle" font-size="12">4-step Euler  →  recommended 20</text>
+      <path d="M260 406 L260 430" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Output -->
+      <rect x="140" y="490" width="240" height="36" rx="9" fill="#dcfce7" stroke="#16a34a"/>
+      <text x="260" y="513" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14532d">action chunk [B, 16, 13]</text>
+      <path d="M260 470 L260 490" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- ----- N1.5 column ----- -->
+      <rect x="580" y="90" width="120" height="40" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+      <text x="640" y="115" text-anchor="middle" font-size="12">Image (aug)</text>
+      <rect x="720" y="90" width="120" height="40" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+      <text x="780" y="115" text-anchor="middle" font-size="12">Language</text>
+      <rect x="860" y="90" width="120" height="40" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+      <text x="920" y="115" text-anchor="middle" font-size="12">State (pad 64, min_max)</text>
+
+      <!-- Eagle 2 -->
+      <rect x="580" y="160" width="400" height="76" rx="12" fill="url(#warmGrad)" stroke="#15803d" stroke-width="1.6"/>
+      <text x="780" y="186" text-anchor="middle" font-size="14" font-weight="700" fill="#14532d">Eagle 2 VLM</text>
+      <text x="780" y="206" text-anchor="middle" font-size="11.5" fill="#14532d">web + robotics instruction tuning</text>
+      <text x="780" y="224" text-anchor="middle" font-size="11.5" fill="#14532d">hidden_dim ≈ 1536   ·   ~2 B params</text>
+      <path d="M780 130 L780 160" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Adapter -->
+      <rect x="640" y="260" width="280" height="44" rx="10" fill="url(#warmGrad)" stroke="#15803d"/>
+      <text x="780" y="287" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14532d">VL → action adapter (warm-start)</text>
+      <path d="M780 236 L780 260" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- DiT WARM -->
+      <rect x="580" y="330" width="400" height="76" rx="12" fill="url(#warmGradStrong)" stroke="#14532d" stroke-width="1.8"/>
+      <text x="780" y="356" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">DiT Action Head (warm)</text>
+      <text x="780" y="376" text-anchor="middle" font-size="11.5" fill="#dcfce7">flow-matching · robotics-pretrained</text>
+      <text x="780" y="394" text-anchor="middle" font-size="11.5" fill="#dcfce7">millions of cross-embodiment trajectories</text>
+      <path d="M780 304 L780 330" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Sampler -->
+      <rect x="640" y="430" width="280" height="40" rx="10" fill="#f1f5f9" stroke="#475569" stroke-dasharray="4 3"/>
+      <text x="780" y="455" text-anchor="middle" font-size="12">DDIM 4-step (proper sampler)</text>
+      <path d="M780 406 L780 430" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Output -->
+      <rect x="660" y="490" width="240" height="36" rx="9" fill="#dcfce7" stroke="#16a34a"/>
+      <text x="780" y="513" text-anchor="middle" font-size="12.5" font-weight="600" fill="#14532d">action chunk [B, 16, 32]</text>
+      <path d="M780 470 L780 490" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arr2)"/>
+
+      <!-- Annotations: pros -->
+      <g font-family="Inter, system-ui, sans-serif" font-size="11.5">
+        <!-- StarVLA pros annotation -->
+        <rect x="40"  y="550" width="440" height="76" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+        <text x="60" y="572" font-weight="700" fill="#14532d">Pros</text>
+        <text x="60" y="590" fill="#14532d">• Newer, larger VLM (4 B) — stronger MMMU / DocVQA</text>
+        <text x="60" y="606" fill="#14532d">• Higher hidden_dim = richer conditioning signal</text>
+        <text x="60" y="622" fill="#14532d">• Permissive MIT license; raw 13-D action saves capacity</text>
+
+        <rect x="40"  y="636" width="440" height="76" rx="8" fill="#ffebe9" stroke="#cf222e"/>
+        <text x="60" y="658" font-weight="700" fill="#7f1d1d">Cons</text>
+        <text x="60" y="676" fill="#7f1d1d">• Cold action head — must learn how to denoise from scratch</text>
+        <text x="60" y="692" fill="#7f1d1d">• Plain 4-step Euler sampler (DDIM kwargs are dead code)</text>
+        <text x="60" y="708" fill="#7f1d1d">• No image augmentation; ~2× VLM compute vs Eagle 2</text>
+
+        <!-- N1.5 pros annotation -->
+        <rect x="560" y="550" width="440" height="76" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+        <text x="580" y="572" font-weight="700" fill="#14532d">Pros</text>
+        <text x="580" y="590" fill="#14532d">• Action head pretrained on robot data — strong prior</text>
+        <text x="580" y="606" fill="#14532d">• Compact VLM, faster step (~15-25 ms vs ~30-50 ms)</text>
+        <text x="580" y="622" fill="#14532d">• Image augmentation + universal padding aids transfer</text>
+
+        <rect x="560" y="636" width="440" height="76" rx="8" fill="#ffebe9" stroke="#cf222e"/>
+        <text x="580" y="658" font-weight="700" fill="#7f1d1d">Cons</text>
+        <text x="580" y="676" fill="#7f1d1d">• Smaller, older VLM — weaker general VL understanding</text>
+        <text x="580" y="692" fill="#7f1d1d">• Padding to 32/64 dims wastes capacity for low-DOF robots</text>
+        <text x="580" y="708" fill="#7f1d1d">• NVIDIA license; less framework swap-anything flexibility</text>
+      </g>
+
+      <!-- Pin lines from annotations to components -->
+      <path d="M260 550 L260 526" stroke="#16a34a" stroke-width="1" fill="none" stroke-dasharray="3 2"/>
+      <path d="M260 636 L260 410" stroke="#cf222e" stroke-width="1" fill="none" stroke-dasharray="3 2"/>
+      <path d="M780 550 L780 408" stroke="#16a34a" stroke-width="1" fill="none" stroke-dasharray="3 2"/>
+      <path d="M780 636 L780 526" stroke="#cf222e" stroke-width="1" fill="none" stroke-dasharray="3 2"/>
+    </g>
+  </svg>
+  <div class="caption">Figure 3 — Side-by-side architectures. Green = pretrained
+  (web or robotics). Red = randomly initialized at fine-tune time. Pros/cons
+  are pinned to the specific components they describe.</div>
+</div>
+
+<div class="legend">
+  <span><span class="swatch" style="background:#22c55e;"></span>robotics-pretrained (warm)</span>
+  <span><span class="swatch" style="background:#86efac;"></span>web-pretrained (general)</span>
+  <span><span class="swatch" style="background:#f87171;"></span>random init (cold)</span>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="improvement">10. Recommendations for Improvement</h2>
+
+<p>
+Three paths, ranked by effort. For most users the recommended sequence is
+Path A → re-evaluate → only proceed to B or C if the residual gap matters
+for the downstream task.
+</p>
+
+<h3>10.1 Path A — Unfreeze the VLM and train longer (1–2 days)</h3>
+<p>
+The lowest-effort improvement. Edit <code>starvla_train_openarm_o6.yaml</code>:
+</p>
+<pre><code>trainer:
+  max_train_steps: 200000          # was 100000
+  freeze_modules: ""                # was "qwen_vl_interface"
+  learning_rate:
+    base: 5.0e-06                  # was 1.0e-05
+    qwen_vl_interface: 5.0e-06     # was 1.0e-05
+    action_model: 5.0e-05          # keep</code></pre>
+<p>
+Lets Qwen3-VL adapt to the can-sorting visual domain. With the VLM
+unfrozen, per-step VRAM roughly doubles; drop
+<code>per_device_batch_size</code> from 16 to 4 and raise
+<code>gradient_accumulation_steps</code> to 8 to preserve the effective
+batch size. <strong>Expected MSE improvement: 30–50%</strong>.
+</p>
+
+<h3>10.2 Path B — Pretrain on a larger mixture, then fine-tune (3–7 days)</h3>
+<p>
+Train StarVLA on a much larger dataset (DROID, OpenX subset, LIBERO) for
+~300–500 k steps, then fine-tune on can-sorting for another 50 k. This
+reproduces the recipe NVIDIA used to make the N1.5 head warm.
+<strong>Expected MSE improvement: 5–10×</strong>. Cost: substantial GPU
+time + curating a multi-robot mixture.
+</p>
+
+<h3>10.3 Path C — Direct action-head warm-start (1–3 days experimentation)</h3>
+<p>
+Load the action head from <code>nvidia/GR00T-N1.5-3B</code> and copy the
+dim-compatible tensors (self-attention Q/K/V/O, FFN, AdaLN modulation)
+while freshly initializing layers that depend on action_dim / state_dim /
+cross-attention dim (those differ between StarVLA and N1.5). Risk:
+partial transfer can be <em>worse</em> than cold init if internal layer
+interactions diverge.
+</p>
+
+<h3>10.4 Deployment-time quick wins (no retraining)</h3>
+<ul>
+  <li><strong>Raise inference steps from 4 to 16–20.</strong> Drops MSE by
+      ~3× and visibly smooths the per-DOF trajectory plots. Single config
+      change.</li>
+  <li><strong>Keep the low-pass filter on the action stream.</strong>
+      Lowering <code>alpha</code> from 0.3 → 0.15–0.20 smooths further at
+      the cost of a small lag.</li>
+  <li><strong>Verify state normalization at the deployment edge.</strong>
+      The StarVLA server expects q99-normalized state input; raw joint
+      angles cause "jitter at init"-style failures.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="findings">11. Empirical Findings — OpenArm O6 Debug Session</h2>
+
+<div class="figure">
+  <svg viewBox="0 0 920 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MSE progression">
+    <defs>
+      <linearGradient id="barRed" x1="0" x2="1"><stop offset="0%" stop-color="#fca5a5"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+      <linearGradient id="barOrange" x1="0" x2="1"><stop offset="0%" stop-color="#fdba74"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
+      <linearGradient id="barYellow" x1="0" x2="1"><stop offset="0%" stop-color="#fde68a"/><stop offset="100%" stop-color="#ca8a04"/></linearGradient>
+      <linearGradient id="barGreen" x1="0" x2="1"><stop offset="0%" stop-color="#86efac"/><stop offset="100%" stop-color="#15803d"/></linearGradient>
+    </defs>
+
+    <g font-family="Inter, system-ui, sans-serif" font-size="12">
+      <text x="460" y="28" text-anchor="middle" font-size="15" font-weight="700">
+        Average MSE on OpenArm O6 — debug-session progression (lower is better)
+      </text>
+
+      <!-- bars: x-scale: max value 0.018, width 600 -->
+      <!-- bar 1: 0.01739 (original) -->
+      <rect x="300" y="60" height="34" width="600" fill="url(#barRed)" rx="4"/>
+      <text x="280" y="82" text-anchor="end" font-weight="600" fill="#374151">Original (state missing)</text>
+      <text x="910" y="82" font-weight="600" fill="#7f1d1d">0.01739</text>
+
+      <!-- bar 2: 0.00225 -->
+      <rect x="300" y="110" height="34" width="78" fill="url(#barOrange)" rx="4"/>
+      <text x="280" y="132" text-anchor="end" font-weight="600" fill="#374151">+ include_state fix (4 steps)</text>
+      <text x="388" y="132" fill="#9a3412" font-weight="600">0.00225</text>
+
+      <!-- bar 3: 0.00072 -->
+      <rect x="300" y="160" height="34" width="25" fill="url(#barYellow)" rx="4"/>
+      <text x="280" y="182" text-anchor="end" font-weight="600" fill="#374151">+ 20 denoising steps</text>
+      <text x="335" y="182" fill="#854d0e" font-weight="600">0.00072</text>
+
+      <!-- bar 4: 0.00026 -->
+      <rect x="300" y="210" height="34" width="9" fill="url(#barGreen)" rx="4"/>
+      <text x="280" y="232" text-anchor="end" font-weight="600" fill="#374151">Isaac-GR00T N1.5 baseline</text>
+      <text x="319" y="232" fill="#14532d" font-weight="600">0.00026</text>
+
+      <!-- axis -->
+      <line x1="300" y1="266" x2="900" y2="266" stroke="#9ca3af"/>
+      <line x1="300" y1="266" x2="300" y2="270" stroke="#9ca3af"/>
+      <line x1="900" y1="266" x2="900" y2="270" stroke="#9ca3af"/>
+      <text x="300" y="284" text-anchor="middle" font-size="11" fill="#57606a">0</text>
+      <text x="900" y="284" text-anchor="middle" font-size="11" fill="#57606a">0.018 rad²</text>
+
+      <text x="600" y="306" text-anchor="middle" font-size="11" fill="#57606a">
+        67× total reduction from original; 2.7× remaining gap to N1.5
+      </text>
+    </g>
+  </svg>
+  <div class="caption">Figure 4 — Average MSE on 10 OpenArm O6 trajectories
+  (150 steps each). Two zero-cost fixes brought the model from "broken" to
+  within 3× of N1.5; the residual gap is the cold-head story.</div>
+</div>
+
+<table>
+  <tr>
+    <th>Symptom</th>
+    <th>Root cause</th>
+    <th>Fix</th>
+  </tr>
+  <tr>
+    <td>Robot "jitters at initial state" in deployment</td>
+    <td>Client adapter forwarded raw joint angles; training fed the model q99-normalized state</td>
+    <td>Apply forward q99 transform in <code>starvla_client_adapter.py</code> before sending</td>
+  </tr>
+  <tr>
+    <td>Offline MSE 65× worse than in-training MSE</td>
+    <td><code>4_eval_starvla_traj.py</code> did not pass <code>include_state=True</code>; <code>_pack_sample</code> silently dropped the state key</td>
+    <td>Read <code>include_state</code> from the saved YAML and pass it through</td>
+  </tr>
+  <tr>
+    <td>Per-DOF predictions still noisy after fix</td>
+    <td>Default 4-step Euler sampling is too coarse for open-loop rollout</td>
+    <td>Wire <code>--denoising_steps 20</code> through server and policy config</td>
+  </tr>
+  <tr>
+    <td>Logged <code>mse_score</code> not interpretable</td>
+    <td>Metric was <code>np.linalg.norm(diff) / num_pots</code>, i.e. RMSE/√N</td>
+    <td>Replace with <code>np.mean((a-b)**2)</code> — classical MSE</td>
+  </tr>
+  <tr>
+    <td>Trainer eval kwargs <code>use_ddim=True</code> appeared to do nothing</td>
+    <td>Action head implements only Euler; framework's <code>predict_action</code> drops <code>**kwargs</code></td>
+    <td>Remove the dead kwargs; (longer-term) implement a DDIM branch</td>
+  </tr>
+  <tr>
+    <td>Action dim 12 (thumb MCP) has q01 == q99</td>
+    <td>Joint held at a constant angle throughout dataset by design</td>
+    <td>Normalizer correctly leaves it unchanged; consider dropping the dim in a future model</td>
+  </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="references">12. References</h2>
+<ul>
+  <li><a href="https://starvla.github.io/docs/getting-started/quick-start/">StarVLA — Quick-Start Guide</a></li>
+  <li><a href="https://starvla.github.io/docs/faq/">StarVLA — FAQ</a></li>
+  <li><a href="https://arxiv.org/abs/2604.05014">StarVLA: A Lego-like Codebase for VLA Model Developing (arXiv:2604.05014)</a></li>
+  <li><a href="https://github.com/starVLA/starVLA">StarVLA — GitHub</a></li>
+  <li>This repo's comparison guide: <code>docs/openarm_o6/GR00T_N15_COMPARISON.md</code></li>
+</ul>
+
+<footer>
+  Generated for the OpenArm O6 can-sorting workstream. Numbers in section 11
+  are from this repo's checkpoints; treat them as indicative for a 4090-class
+  single-GPU fine-tune on ~1000 episodes, not as canonical StarVLA results.
+</footer>
+
+</div>
+</body>
+</html>

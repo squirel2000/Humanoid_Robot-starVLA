@@ -5,20 +5,13 @@ The structure intentionally follows Isaac-GR00T's `launch_finetune.py`: tyro
 parses a dataclass config, this launcher maps that config onto the project
 runtime, then hands off to the actual training entry point.
 
-# Example usage (from the repo root with the `starVLA` conda env active):
+# Example usage — ./starvla_train_openarm_o6.yaml:
 conda activate starVLA
 python scripts/3_train_starvla.py \
-    --run_id openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5 \
-    --max_train_steps 100000 \
-    --per_device_batch_size 16 \
-    --gradient_accumulation_steps 2 \
-    --learning_rate_action_model 5e-5 \
-    --weight_decay 1e-5 \
-    --num_warmup_steps 500 \
-    --save_interval 2000 \
-    --max_checkpoints_to_keep 5 \
-    --eval_interval 2000 \
-    --logging_frequency 500 \
+    --run_id openarm_o6_qwengroot_right_only_bs16_unfrozenVLM_200k \
+    --max_train_steps 200000 \
+    --per_device_batch_size 4 \
+    --gradient_accumulation_steps 8 \
     --use_wandb
     
 wandb login   # one-time
@@ -71,7 +64,7 @@ def build_accelerate_command(config: StarVLATrainConfig) -> list[str]:
         "--trainer.learning_rate.action_model",       str(config.learning_rate_action_model),
         "--trainer.learning_rate.qwen_vl_interface",  str(config.learning_rate_qwen_vl),
         "--trainer.save_interval",                    str(config.save_interval),
-        "--trainer.max_checkpoints_to_keep",           str(config.max_checkpoints_to_keep),
+        "--trainer.max_checkpoints_to_keep",          str(config.max_checkpoints_to_keep),
         "--trainer.eval_interval",                    str(config.eval_interval),
         "--trainer.logging_frequency",                str(config.logging_frequency),
         "--run_root_dir",                             str(config.output_dir.resolve()),
@@ -95,12 +88,7 @@ def main(config: StarVLATrainConfig) -> None:
     print(f"precision    : {config.mixed_precision} (deepspeed={use_deepspeed})")
     print(f"steps        : {config.max_train_steps} (warmup {config.num_warmup_steps})")
     print(f"batch/device : {config.per_device_batch_size} x grad_accum {config.gradient_accumulation_steps}")
-    checkpoint_retention = (
-        f"keep latest {config.max_checkpoints_to_keep}"
-        if config.max_checkpoints_to_keep > 0
-        else "keep all"
-    )
-    print(f"checkpoints  : every {config.save_interval} steps, {checkpoint_retention}")
+    print(f"checkpoints  : every {config.save_interval} steps, {config.max_checkpoints_to_keep}")
     print(f"freeze       : {config.freeze_modules or '<none>'}")
     print(f"wandb        : {'online' if config.use_wandb else 'offline'} ({config.wandb_project})")
     print()

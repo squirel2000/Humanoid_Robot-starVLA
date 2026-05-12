@@ -191,10 +191,12 @@ class StarVLATrainConfig:
     """Configuration for launching StarVLA fine-tuning on OpenArm O6.
 
     Mirrors Isaac-GR00T's `FinetuneConfig`: a flat dataclass exposing only the
-    arguments users typically tune. Defaults are sized for a single 32GB GPU
-    (action head only, Qwen frozen). Anything not exposed here is read from
-    `config_yaml` — edit that file for advanced tuning (per-module learning
-    rates, optimizer betas, scheduler kwargs, etc.).
+    arguments users typically tune. **Defaults below mirror the Path A recipe
+    in `starvla_train_openarm_o6.yaml`** — VLM unfrozen, 200k steps,
+    bs=4×grad_accum=8 sized for a 24 GB 4090. Anything not exposed here is
+    read from `config_yaml`; edit that file for advanced tuning (optimizer
+    betas, scheduler kwargs, etc.). For the common case, the only CLI flag
+    you need is `--run_id`.
     """
 
     # --- Paths ---
@@ -227,48 +229,42 @@ class StarVLATrainConfig:
     """Use DeepSpeed. Defaults to False for one process and True for multi-GPU."""
 
     # --- Training hyperparameters ---
-    max_train_steps: int = 10000
-    """Total optimizer steps."""
+    max_train_steps: int = 200000
+    """Total optimizer steps. Path A: 200k (was 100k while VLM was frozen)."""
 
-    per_device_batch_size: int = 16
-    """Per-GPU batch size. Keep small on 32GB GPUs."""
+    per_device_batch_size: int = 4
+    """Per-GPU batch size. With VLM unfrozen, 4 fits a 24 GB 4090; raise to
+    8-16 on 80 GB H100/A100 (and lower gradient_accumulation_steps in turn)."""
 
-    gradient_accumulation_steps: int = 2
-    """Forward passes accumulated before each optimizer step (passed to Accelerate)."""
+    gradient_accumulation_steps: int = 8
+    """Forward passes accumulated per optimizer step. 4×8 = effective bs=32,
+    a bit larger than the previous bs16 frozen run for stability."""
 
-    num_warmup_steps: int = 100
-    """Linear warmup steps for the LR scheduler."""
+    num_warmup_steps: int = 1000
+    """Linear warmup steps for the LR scheduler. Path A: longer warmup since
+    the VLM is updating too."""
 
     weight_decay: float = 1e-5
-    """AdamW weight decay (maps to `trainer.optimizer.weight_decay`).
+    """AdamW weight decay (maps to `trainer.optimizer.weight_decay`)."""
 
-    Default 1e-5 matches Isaac-GR00T's `FinetuneConfig.weight_decay`. The YAML
-    historically shipped 1e-8 (near-zero), which is fine for short runs but
-    can contribute to action-head divergence on long fine-tunes — exactly the
-    failure mode that nuked the last 2k steps of the 50k OpenArm O6 run.
-    """
+    learning_rate_action_model: float = 5.0e-5
+    """LR for the DiT action head. Path A: kept at 5e-5; the head still has
+    the most to learn but doesn't need the YAML's old 1e-4."""
 
-    learning_rate_action_model: float = 1.0e-4
-    """LR for the DiT action head (overrides `trainer.learning_rate.action_model`).
+    learning_rate_qwen_vl: float = 5.0e-6
+    """LR for the QwenVL interface. Active in Path A (VLM unfrozen).
+    Kept small so the pretrained backbone drifts gently."""
 
-    Lower this to 5e-5 if you observe NaN tensors near the end of long runs.
-    """
-
-    learning_rate_qwen_vl: float = 1.0e-5
-    """LR for the QwenVL interface (overrides `trainer.learning_rate.qwen_vl_interface`).
-
-    Only relevant when you set `freeze_modules=""` — otherwise the VLM is
-    frozen and this LR doesn't apply.
-    """
-
-    learning_rate_base: float = 1.0e-5
+    learning_rate_base: float = 5.0e-6
     """Default LR for any module not matched by the per-module overrides above."""
 
     gradient_clipping: float = 1.0
     """Global gradient-norm clip threshold."""
 
-    freeze_modules: str = "qwen_vl_interface"
-    """Comma-separated module paths to freeze; empty string enables full fine-tuning."""
+    freeze_modules: str = ""
+    """Comma-separated module paths to freeze. Path A: empty = nothing frozen,
+    so Qwen3-VL adapts to the can-sorting visual domain. Set to
+    `qwen_vl_interface` to reproduce the old frozen-VLM recipe."""
 
     seed: int = 42
     """Top-level RNG seed shared across rank 0."""
@@ -280,7 +276,7 @@ class StarVLATrainConfig:
     max_checkpoints_to_keep: int = 5
     """Number of latest periodic checkpoints to keep. Set <=0 to disable pruning."""
 
-    eval_interval: int = 1000
+    eval_interval: int = 2000
     """Action-eval interval in training steps."""
 
     logging_frequency: int = 100

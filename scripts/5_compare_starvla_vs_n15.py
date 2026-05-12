@@ -75,6 +75,12 @@ class CompareConfig:
     action_horizon: int = 16
     """Chunk size used to unroll predictions."""
 
+    denoising_steps: int | None = None
+    """Override num_inference_timesteps on the StarVLA side only. The action
+    head's saved default is 4 (Euler), which is fast but noisy; 16–20 gives
+    cleaner trajectories and a fair head-to-head with N1.5's DDIM-style
+    sampler. None = keep whatever the StarVLA YAML default says."""
+
     plot: bool = True
     """Save per-DOF plots from both evaluators."""
 
@@ -187,6 +193,10 @@ def run_starvla_eval(cfg: CompareConfig, out_dir: Path) -> tuple[Path, Path]:
         return log, json_path
 
     plot_flag = "--plot" if cfg.plot else ""
+    ds_flag = (
+        f"--denoising_steps {cfg.denoising_steps} "
+        if cfg.denoising_steps is not None else ""
+    )
     inner = (
         f"python scripts/4_eval_starvla_traj.py "
         f"--checkpoint {shlex.quote(str(cfg.starvla_ckpt))} "
@@ -195,6 +205,7 @@ def run_starvla_eval(cfg: CompareConfig, out_dir: Path) -> tuple[Path, Path]:
         f"--start_traj_id {cfg.start_traj_id} "
         f"--steps {cfg.steps} "
         f"--action_horizon {cfg.action_horizon} "
+        f"{ds_flag}"
         f"--output_json {shlex.quote(str(json_path))} "
         f"--output_dir {shlex.quote(str(out_dir))} "
         f"{plot_flag}"

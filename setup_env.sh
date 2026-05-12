@@ -1,79 +1,132 @@
 #!/usr/bin/env bash
-# StarVLA environment setup script
+# StarVLA environment setup — portable across CUDA and GPU generations.
 #
-# Tested configuration:
-#   GPU    : NVIDIA RTX 4090 (Ada, sm_89) / NVIDIA RTX 5090 (Blackwell, sm_100)
-#   CUDA   : 12.8  (nvcc V12.8.93)
-#   Python : 3.10
+# Tested on:
+#   RTX 4090 (sm_89, Ada)        + CUDA 12.8 + Py 3.10
+#   RTX 5090 (sm_100, Blackwell) + CUDA 12.8 + Py 3.10
+#   A100     (sm_80, Ampere)     + CUDA 12.4 + Py 3.10
+#   H100     (sm_90, Hopper)     + CUDA 12.4/12.6 + Py 3.10
 #
-# Why PyTorch 2.7.0 instead of the 2.6.0 noted in requirements.txt?
-#   PyTorch 2.7.0 + cu128 provides future-proofing compatibility for integrating 
-#   Isaac-GR00T models in the long run. It natively supports both RTX 4090 (sm_89) 
-#   and RTX 5090 (sm_100). torchvision 0.22.0 is the matching version.
+# What this script does
+# ---------------------
+#   1. Detects (or accepts overrides for) Python, CUDA, PyTorch versions.
+#   2. Creates a conda env and installs a CUDA-matched PyTorch wheel.
+#   3. Installs requirements.txt (minus pinned torchvision, which we manage).
+#   4. Builds flash-attn from source against the installed torch + CUDA.
+#   5. Installs the starVLA package in editable mode and prints a summary.
 #
-# Why flash-attn builds from source?
-#   flash-attn 2.7.4.post1 prebuilt wheels only exist for specific torch/CUDA
-#   combos. Building with --no-build-isolation uses the already-installed torch
-#   and the system CUDA 12.8 toolkit, guaranteeing a compatible build.
-#   Build time: ~15-30 min depending on CPU core count.
-#   MAX_JOBS below caps parallel compilation to avoid OOM on the build host.
+# Override knobs (export before running, all optional)
+# ----------------------------------------------------
+#   ENV_NAME        conda env name                       (default: starVLA)
+#   PYTHON_VER      Python version                       (default: 3.10)
+#   CUDA_HOME       path to a CUDA toolkit               (auto-detect)
+#   CUDA_TAG        wheel suffix: cu121 / cu124 / cu128  (auto-derived from CUDA_HOME)
+#   TORCH_VER       PyTorch version                      (auto-derived from CUDA_TAG)
+#   FLASH_ATTN_VER  flash-attn version                   (default: 2.7.4.post1)
+#   MAX_JOBS        parallel nvcc workers for flash-attn (default: 4)
 #
-# Flash-attn + Blackwell note:
-#   flash-attn 2.7.4.post1 ships kernels for sm_80/86/89/90. For sm_100 it
-#   compiles via nvcc and may fall back to non-specialised paths at runtime.
-#   If you observe reduced throughput, consider upgrading to flash-attn 3.x
-#   which has explicit Blackwell kernel support.
+# Notes on GPU architectures
+# --------------------------
+#   - flash-attn 2.x ships kernels for sm_80/86/89/90. On sm_100 (Blackwell)
+#     it falls back to generic paths; upgrade to flash-attn 3.x once stable
+#     for native Blackwell kernels.
+#   - On H100/A100, CUDA 12.1+ is fine; 12.4 is the most-tested combo.
+#   - On RTX 5090, you NEED CUDA 12.8 — earlier toolkits don't know sm_100.
 
 set -euo pipefail
 
-# ── Configuration ──────────────────────────────────────────────────────────────
-ENV_NAME="starVLA"
-PYTHON_VER="3.10"
-TORCH_VER="2.7.0"
-TORCHVISION_VER="0.22.0"
-TORCHAUDIO_VER="2.7.0"
-FLASH_ATTN_VER="2.7.4.post1"
-CUDA_TAG="cu128"                                        # CUDA 12.8
-PYTORCH_WHL_URL="https://download.pytorch.org/whl/${CUDA_TAG}"
-MAX_JOBS="${MAX_JOBS:-4}"                               # parallel nvcc workers for flash-attn
+# ── Configuration (overridable) ────────────────────────────────────────────────
+ENV_NAME="${ENV_NAME:-starVLA}"
+PYTHON_VER="${PYTHON_VER:-3.10}"
+FLASH_ATTN_VER="${FLASH_ATTN_VER:-2.7.4.post1}"
+MAX_JOBS="${MAX_JOBS:-4}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── Resolve CUDA 12.8 toolkit path ─────────────────────────────────────────────
-# flash-attn's setup.py reads CUDA_HOME to locate nvcc and CUDA headers.
-if   [ -d "/usr/local/cuda-12.8" ]; then
-    export CUDA_HOME="/usr/local/cuda-12.8"
-elif [ -d "/usr/local/cuda" ] && nvcc --version 2>/dev/null | grep -q "12\.8"; then
-    export CUDA_HOME="/usr/local/cuda"
-else
-    echo "ERROR: CUDA 12.8 toolkit not found under /usr/local/cuda-12.8 or /usr/local/cuda." >&2
-    echo "       Verify with: nvcc --version" >&2
+# ── Resolve CUDA toolkit ───────────────────────────────────────────────────────
+# Search order: explicit CUDA_HOME → /usr/local/cuda-<X.Y> dirs → /usr/local/cuda.
+resolve_cuda_home() {
+    if [ -n "${CUDA_HOME:-}" ] && [ -x "${CUDA_HOME}/bin/nvcc" ]; then
+        return 0
+    fi
+    local cand
+    for cand in /usr/local/cuda-12.8 /usr/local/cuda-12.6 /usr/local/cuda-12.4 \
+                /usr/local/cuda-12.1 /usr/local/cuda; do
+        if [ -x "${cand}/bin/nvcc" ]; then
+            export CUDA_HOME="${cand}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! resolve_cuda_home; then
+    echo "ERROR: no CUDA toolkit found. Set CUDA_HOME=/path/to/cuda or install one under /usr/local." >&2
+    echo "       Verify with: which nvcc && nvcc --version" >&2
     exit 1
 fi
 export PATH="${CUDA_HOME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${CUDA_HOME}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
+# ── Derive CUDA_TAG (e.g. "cu128") from nvcc version, unless overridden ────────
+if [ -z "${CUDA_TAG:-}" ]; then
+    NVCC_VER="$(nvcc --version | sed -nE 's/.*release ([0-9]+\.[0-9]+).*/\1/p' | head -n1)"
+    case "${NVCC_VER}" in
+        12.8|12.9) CUDA_TAG="cu128" ;;
+        12.6|12.7) CUDA_TAG="cu126" ;;
+        12.4|12.5) CUDA_TAG="cu124" ;;
+        12.1|12.2|12.3) CUDA_TAG="cu121" ;;
+        11.8) CUDA_TAG="cu118" ;;
+        *)
+            echo "WARNING: unrecognised CUDA ${NVCC_VER}; defaulting to cu121. Set CUDA_TAG to override." >&2
+            CUDA_TAG="cu121"
+            ;;
+    esac
+fi
+
+# ── Pick a PyTorch version compatible with the chosen CUDA tag ─────────────────
+# Mapping: each wheel index hosts a small range of torch versions. We pick the
+# most recent torch that's broadly tested for each tag. Override TORCH_VER if
+# you have a specific reason (e.g. compiling against an old extension).
+if [ -z "${TORCH_VER:-}" ]; then
+    case "${CUDA_TAG}" in
+        cu128) TORCH_VER="2.7.0"; TORCHVISION_VER="0.22.0"; TORCHAUDIO_VER="2.7.0" ;;
+        cu126) TORCH_VER="2.6.0"; TORCHVISION_VER="0.21.0"; TORCHAUDIO_VER="2.6.0" ;;
+        cu124) TORCH_VER="2.5.1"; TORCHVISION_VER="0.20.1"; TORCHAUDIO_VER="2.5.1" ;;
+        cu121) TORCH_VER="2.4.1"; TORCHVISION_VER="0.19.1"; TORCHAUDIO_VER="2.4.1" ;;
+        cu118) TORCH_VER="2.4.1"; TORCHVISION_VER="0.19.1"; TORCHAUDIO_VER="2.4.1" ;;
+        *) echo "ERROR: no torch mapping for CUDA_TAG=${CUDA_TAG}" >&2; exit 1 ;;
+    esac
+fi
+TORCHVISION_VER="${TORCHVISION_VER:-0.22.0}"
+TORCHAUDIO_VER="${TORCHAUDIO_VER:-${TORCH_VER}}"
+PYTORCH_WHL_URL="https://download.pytorch.org/whl/${CUDA_TAG}"
+
 echo "======================================================"
 echo " StarVLA environment setup"
-echo " CUDA_HOME : ${CUDA_HOME}"
-echo " ENV_NAME  : ${ENV_NAME}"
-echo " PyTorch   : ${TORCH_VER}+${CUDA_TAG}"
+echo " ENV_NAME   : ${ENV_NAME}"
+echo " Python     : ${PYTHON_VER}"
+echo " CUDA_HOME  : ${CUDA_HOME}"
+echo " CUDA_TAG   : ${CUDA_TAG}"
+echo " PyTorch    : ${TORCH_VER}+${CUDA_TAG}"
+echo " flash-attn : ${FLASH_ATTN_VER}"
 echo "======================================================"
-nvcc --version
+nvcc --version | tail -n 1
+if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader | head -n 1
+fi
 echo ""
 
-# ── Step 1: Create conda environment ───────────────────────────────────────────
+# ── Step 1: Conda env ──────────────────────────────────────────────────────────
 echo "[1/5] Creating conda environment '${ENV_NAME}' (Python ${PYTHON_VER})"
 conda create -n "${ENV_NAME}" python="${PYTHON_VER}" -y
 
-# Activate — works in both interactive shells and non-interactive CI.
-# shellcheck source=/dev/null
 CONDA_BASE="$(conda info --base)"
+# shellcheck source=/dev/null
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${ENV_NAME}"
-
 echo "      Active Python: $(python --version)"
 
-# ── Step 2: Install PyTorch 2.7.0 + CUDA 12.8 ──────────────────────────────────
+# ── Step 2: PyTorch ────────────────────────────────────────────────────────────
 echo ""
 echo "[2/5] Installing PyTorch ${TORCH_VER}+${CUDA_TAG}, torchvision ${TORCHVISION_VER}"
 pip install \
@@ -82,37 +135,29 @@ pip install \
     "torchaudio==${TORCHAUDIO_VER}" \
     --index-url "${PYTORCH_WHL_URL}"
 
-# Quick sanity-check: confirm CUDA is visible before proceeding.
 python - <<'PYEOF'
-import torch, sys
+import torch
 assert torch.cuda.is_available(), "CUDA not available after PyTorch install — check driver/toolkit."
 cap = torch.cuda.get_device_capability(0)
-name = torch.cuda.get_device_name(0)
-print(f"      GPU: {name}  (sm_{cap[0]}{cap[1]})")
+print(f"      GPU: {torch.cuda.get_device_name(0)}  (sm_{cap[0]}{cap[1]})")
 print(f"      PyTorch {torch.__version__}  CUDA runtime {torch.version.cuda}")
 PYEOF
 
-# ── Step 3: Install project requirements ───────────────────────────────────────
-# torchvision==0.21.0 in requirements.txt targets torch 2.6.0; skip that line
-# and keep the 0.22.0 installed above.
+# ── Step 3: Project requirements ───────────────────────────────────────────────
+# Exclude torchvision so we don't downgrade the version installed in step 2.
 echo ""
 echo "[3/5] Installing requirements.txt (torchvision pin excluded)"
-grep -v "^torchvision" "${SCRIPT_DIR}/requirements.txt" \
-    | pip install -r /dev/stdin
+grep -v "^torchvision" "${SCRIPT_DIR}/requirements.txt" | pip install -r /dev/stdin
+pip install idna --quiet  # transitive dep of yarl
 
-# idna: transitive dep of yarl (used by huggingface_hub, websocket libs).
-# Without it, pip warns of unmet dependencies. Installing explicitly.
-pip install idna --quiet
-
-# ── Step 4: Install flash-attn (build from source) ─────────────────────────────
+# ── Step 4: flash-attn (built from source against the installed torch) ─────────
 echo ""
-echo "[4/5] Building flash-attn ${FLASH_ATTN_VER} from source"
-echo "      This typically takes 15–30 minutes. MAX_JOBS=${MAX_JOBS}"
-echo "      Increase MAX_JOBS (export MAX_JOBS=8) to speed up on machines with"
-echo "      many CPU cores, but watch RAM usage (each worker uses ~2 GB)."
+echo "[4/5] Building flash-attn ${FLASH_ATTN_VER} from source (15–30 min, MAX_JOBS=${MAX_JOBS})"
+echo "      Each parallel worker uses ~2 GB RAM; raise MAX_JOBS if you have RAM,"
+echo "      lower it if your build host OOMs."
 MAX_JOBS="${MAX_JOBS}" pip install "flash-attn==${FLASH_ATTN_VER}" --no-build-isolation
 
-# ── Step 5: Install starVLA package (editable) ─────────────────────────────────
+# ── Step 5: starVLA package (editable) ─────────────────────────────────────────
 echo ""
 echo "[5/5] Installing starVLA package in editable mode"
 pip install -e "${SCRIPT_DIR}"
@@ -131,10 +176,9 @@ print(f"  torchvision     : {torchvision.__version__}")
 print(f"  flash-attn      : {flash_attn.__version__}")
 print(f"  CUDA available  : {torch.cuda.is_available()}")
 if torch.cuda.is_available():
-    name = torch.cuda.get_device_name(0)
     cap  = torch.cuda.get_device_capability(0)
     vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
-    print(f"  GPU             : {name}")
+    print(f"  GPU             : {torch.cuda.get_device_name(0)}")
     print(f"  Compute cap.    : sm_{cap[0]}{cap[1]}")
     print(f"  VRAM            : {vram:.1f} GB")
 PYEOF
