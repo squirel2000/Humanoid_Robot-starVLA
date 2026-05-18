@@ -56,7 +56,7 @@ import numpy as np
 # the StarVLA checkout (or copy `deployment/` into your PYTHONPATH).
 # ---------------------------------------------------------------------------
 
-_DEFAULT_STARVLA_REPO = Path("/home/asus/Gits/humanoid_robot/starVLA")
+_DEFAULT_STARVLA_REPO = Path("/home/asus/Gits/IsaacLab-GR00T/starVLA")
 
 
 def _import_websocket_client(repo_root: Path):

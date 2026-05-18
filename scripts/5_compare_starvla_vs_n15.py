@@ -10,9 +10,9 @@ Why two conda envs:
 
 Usage:
     conda activate starVLA      # any env that has python is fine
-    python /home/asus/Gits/IsaacLab-GR00T/starVLA/scripts/5_compare_starvla_vs_n15.py \
-        --starvla-ckpt /home/asus/Gits/IsaacLab-GR00T/starVLA/results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5/final_model \
-        --n15-ckpt /home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T/outputs/openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408/checkpoint-100000 \
+    python scripts/5_compare_starvla_vs_n15.py \
+        --starvla-ckpt ../artifacts/checkpoints/starvla/openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5/final_model \
+        --n15-ckpt ../artifacts/checkpoints/gr00t/openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408/checkpoint-100000 \
         --trajs 10 \
         --steps 150
 """
@@ -31,16 +31,20 @@ from pathlib import Path
 import tyro
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = REPO_ROOT.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-DEFAULT_DATASET = Path(
-    "/home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/"
-    "OpenArm_O6_CanSorting_dataset_0408"
+from project_paths import checkpoint_path, dataset_path  # noqa: E402
+
+DEFAULT_DATASET = dataset_path("OpenArm_O6_CanSorting_dataset_0408", PROJECT_ROOT)
+DEFAULT_N15_CKPT = checkpoint_path(
+    "gr00t",
+    "openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408",
+    "checkpoint-100000",
+    root=PROJECT_ROOT,
 )
-DEFAULT_N15_CKPT = Path(
-    "/home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T/outputs/"
-    "openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408/checkpoint-100000"
-)
-DEFAULT_N15_REPO = Path("/home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T")
+DEFAULT_N15_REPO = PROJECT_ROOT / "Isaac-GR00T"
 
 
 # ---------------------------------------------------------------------------

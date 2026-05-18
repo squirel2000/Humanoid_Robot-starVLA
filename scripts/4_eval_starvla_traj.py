@@ -16,10 +16,10 @@ Run example:
 
     conda activate starVLA
     python scripts/4_eval_starvla_traj.py \
-        --checkpoint /home/asus/Gits/IsaacLab-GR00T/starVLA/results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5/checkpoints/steps_100000_pytorch_model.pt\
-        --dataset_path /home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/OpenArm_O6_CanSorting_dataset_0408 \
+        --checkpoint ../artifacts/checkpoints/starvla/openarm_o6_qwengroot_right_only_bs16_lr5e5_wd1e5/checkpoints/steps_100000_pytorch_model.pt \
+        --dataset_path ../datasets/OpenArm_O6_CanSorting_dataset_0408 \
         --trajs 10 --steps 400 \
-        --output_json /home/asus/Gits/IsaacLab-GR00T/starVLA/results/Checkpoints/starvla_eval.json
+        --output_json results/eval/starvla_eval.json
 """
 
 from __future__ import annotations
@@ -54,7 +54,11 @@ from omegaconf import OmegaConf
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+PROJECT_ROOT = REPO_ROOT.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
+from project_paths import dataset_path  # noqa: E402
 from starVLA.dataloader.gr00t_lerobot.datasets import LeRobotSingleDataset  # noqa: E402
 from starVLA.dataloader.gr00t_lerobot.embodiment_tags import EmbodimentTag  # noqa: E402
 from starVLA.model.framework.VLM4A.QwenGR00T import Qwen_GR00T  # noqa: E402
@@ -81,10 +85,7 @@ class EvalConfig:
     or directly to the .pt file. The parent run dir must hold dataset_statistics.json
     and config.full.yaml."""
 
-    dataset_path: Path = Path(
-        "/home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/"
-        "OpenArm_O6_CanSorting_dataset_0408"
-    )
+    dataset_path: Path = dataset_path("OpenArm_O6_CanSorting_dataset_0408", PROJECT_ROOT)
     """Path to the LeRobot-style OpenArm O6 dataset."""
 
     config_yaml: Path | None = None

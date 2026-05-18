@@ -15,9 +15,9 @@ python scripts/3_train_starvla.py \
     --use_wandb
     
 wandb login   # one-time
-wandb sync results/Checkpoints/openarm_o6_qwengroot_right_only_bs16_50000/wandb/wandb/offline-run-20260504_195745-t46bnqcv
+wandb sync ../artifacts/checkpoints/starvla/openarm_o6_qwengroot_right_only_bs16_50000/wandb/wandb/offline-run-20260504_195745-t46bnqcv
 
-tensorboard --logdir results/Checkpoints/<run_id>/tb
+tensorboard --logdir ../artifacts/checkpoints/starvla/<run_id>/tb
 # default URL: http://localhost:6006
 """
 
@@ -54,6 +54,7 @@ def build_accelerate_command(config: StarVLATrainConfig) -> list[str]:
         "--config_yaml",                              str(config.config_yaml.resolve()),
         "--seed",                                     str(config.seed),
         "--framework.qwenvl.base_vlm",                str(config.base_vlm.resolve()),
+        "--datasets.vla_data.data_root_dir",          str(config.dataset_root.resolve()),
         "--datasets.vla_data.per_device_batch_size",  str(config.per_device_batch_size),
         "--trainer.freeze_modules",                   config.freeze_modules,
         "--trainer.max_train_steps",                  str(config.max_train_steps),
@@ -82,6 +83,7 @@ def main(config: StarVLATrainConfig) -> None:
     print(f"repo         : {REPO_ROOT}")
     print(f"python       : {sys.executable}")
     print(f"config       : {config.config_yaml.resolve()}")
+    print(f"dataset root : {config.dataset_root.resolve()}")
     print(f"base VLM     : {base_vlm}")
     print(f"run          : {run_dir}")
     print(f"processes    : {config.num_processes} x {config.num_machines} machine(s)")

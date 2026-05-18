@@ -1,6 +1,6 @@
 run_id: openarm_o6_qwengroot_right_only
 # All checkpoints/logs go under run_root_dir/run_id.
-run_root_dir: results/Checkpoints
+run_root_dir: ../artifacts/checkpoints/starvla
 seed: 42
 wandb_entity: null
 wandb_project: starVLA_OpenArm_O6
@@ -55,7 +55,7 @@ datasets:
     # data_mix below resolves to <data_root_dir>/OpenArm_O6_CanSorting_dataset_0408.
     # Local path on this RTX 4090 box; override with --datasets.vla_data.data_root_dir
     # if your dataset lives elsewhere.
-    data_root_dir: /home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection
+    data_root_dir: ../datasets
     data_mix: openarm_o6_cansort_right_only
     # The dataset action values are absolute joint positions, not deltas.
     action_type: abs_qpos

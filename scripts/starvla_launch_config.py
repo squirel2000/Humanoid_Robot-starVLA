@@ -12,8 +12,15 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import checkpoint_path, dataset_path, datasets_root  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -30,8 +37,9 @@ DEFAULT_BASE_VLM = REPO_ROOT / "playground/Pretrained_models/Qwen3-VL-4B-Instruc
 # StarVLA QwenGR00T framework (which expects Qwen3-VL Instruct + flash-attn).
 DEFAULT_BASE_VLM_REPO_ID = "Qwen/Qwen3-VL-4B-Instruct"
 DEFAULT_CONFIG   = REPO_ROOT / "examples/OpenArm_O6/train_files/starvla_train_openarm_o6.yaml"
-DEFAULT_DATASET  = Path("/home/asus/Gits/IsaacLab-GR00T/IsaacLab/datasets/gr00t_collection/OpenArm_O6_CanSorting_dataset_0408")
-DEFAULT_OUT_DIR  = REPO_ROOT / "results/Checkpoints"
+DEFAULT_DATA_ROOT = datasets_root(PROJECT_ROOT)
+DEFAULT_DATASET  = dataset_path("OpenArm_O6_CanSorting_dataset_0408", PROJECT_ROOT)
+DEFAULT_OUT_DIR  = checkpoint_path("starvla", root=PROJECT_ROOT)
 
 # StarVLA entry-point scripts (avoids repeating long paths in every launcher)
 DATALOADER_SCRIPT = REPO_ROOT / "starVLA/dataloader/lerobot_datasets.py"
@@ -205,6 +213,9 @@ class StarVLATrainConfig:
 
     config_yaml: Path = DEFAULT_CONFIG
     """StarVLA YAML config to pass to `train_starvla.py`."""
+
+    dataset_root: Path = DEFAULT_DATA_ROOT
+    """Root containing shared project datasets used by StarVLA data_mix entries."""
 
     output_dir: Path = DEFAULT_OUT_DIR
     """Parent directory for training outputs."""
