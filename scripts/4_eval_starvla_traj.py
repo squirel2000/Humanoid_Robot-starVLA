@@ -54,11 +54,8 @@ from omegaconf import OmegaConf
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-PROJECT_ROOT = REPO_ROOT.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
-from project_paths import dataset_path  # noqa: E402
+from starvla_config import DEFAULT_DATASET  # noqa: E402
 from starVLA.dataloader.gr00t_lerobot.datasets import LeRobotSingleDataset  # noqa: E402
 from starVLA.dataloader.gr00t_lerobot.embodiment_tags import EmbodimentTag  # noqa: E402
 from starVLA.model.framework.VLM4A.QwenGR00T import Qwen_GR00T  # noqa: E402
@@ -85,7 +82,7 @@ class EvalConfig:
     or directly to the .pt file. The parent run dir must hold dataset_statistics.json
     and config.full.yaml."""
 
-    dataset_path: Path = dataset_path("OpenArm_O6_CanSorting_dataset_0408", PROJECT_ROOT)
+    dataset_path: Path = DEFAULT_DATASET
     """Path to the LeRobot-style OpenArm O6 dataset."""
 
     config_yaml: Path | None = None

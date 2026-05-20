@@ -25,6 +25,12 @@ DEFAULT_DATA_ROOT = Path("/home/asus/Gits/IsaacLab-GR00T/datasets")
 DEFAULT_DATASET   = DEFAULT_DATA_ROOT / "OpenArm_O6_CanSorting_dataset_0408"
 DEFAULT_OUT_DIR   = Path("/home/asus/Gits/IsaacLab-GR00T/artifacts/checkpoints/starvla")
 
+# Used only by 5_compare_starvla_vs_n15.py — comparison against an Isaac-GR00T
+# N1.5 checkpoint that lives in a sibling repo. Requires the IsaacLab-GR00T
+# workspace layout; not meaningful when starVLA is checked out standalone.
+DEFAULT_N15_CKPT  = Path("/home/asus/Gits/IsaacLab-GR00T/artifacts/checkpoints/gr00t/openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408/checkpoint-100000")
+DEFAULT_N15_REPO  = Path("/home/asus/Gits/IsaacLab-GR00T/Isaac-GR00T")
+
 
 # ---------------------------------------------------------------------------
 # Repository-level constants

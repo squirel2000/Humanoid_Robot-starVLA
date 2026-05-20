@@ -16,7 +16,7 @@ from pathlib import Path
 
 import tyro
 
-from starvla_launch_config import (
+from starvla_config import (
     DATALOADER_SCRIPT,
     FRAMEWORK_SCRIPT,
     REPO_ROOT,

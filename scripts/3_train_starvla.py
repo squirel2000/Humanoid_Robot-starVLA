@@ -28,7 +28,7 @@ import sys
 
 import tyro
 
-from starvla_launch_config import (
+from starvla_config import (
     REPO_ROOT,
     TRAIN_SCRIPT,
     StarVLATrainConfig,

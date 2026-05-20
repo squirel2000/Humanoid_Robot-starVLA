@@ -31,20 +31,8 @@ from pathlib import Path
 import tyro
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = REPO_ROOT.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
-from project_paths import checkpoint_path, dataset_path  # noqa: E402
-
-DEFAULT_DATASET = dataset_path("OpenArm_O6_CanSorting_dataset_0408", PROJECT_ROOT)
-DEFAULT_N15_CKPT = checkpoint_path(
-    "gr00t",
-    "openarm_linkerhando6_cansorting_N15_fft_100k_dataset_0408",
-    "checkpoint-100000",
-    root=PROJECT_ROOT,
-)
-DEFAULT_N15_REPO = PROJECT_ROOT / "Isaac-GR00T"
+from starvla_config import DEFAULT_DATASET, DEFAULT_N15_CKPT, DEFAULT_N15_REPO  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
