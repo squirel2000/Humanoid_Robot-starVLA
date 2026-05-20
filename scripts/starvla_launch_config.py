@@ -12,15 +12,18 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# ---------------------------------------------------------------------------
+# Manually-edited path constants. Edit these when moving the repo to a new
+# machine / workspace layout. CLI flags (--dataset_root, --output_dir) override
+# these at runtime.
+# ---------------------------------------------------------------------------
 
-from project_paths import checkpoint_path, dataset_path, datasets_root  # noqa: E402
+DEFAULT_DATA_ROOT = Path("/home/asus/Gits/IsaacLab-GR00T/datasets")
+DEFAULT_DATASET   = DEFAULT_DATA_ROOT / "OpenArm_O6_CanSorting_dataset_0408"
+DEFAULT_OUT_DIR   = Path("/home/asus/Gits/IsaacLab-GR00T/artifacts/checkpoints/starvla")
 
 
 # ---------------------------------------------------------------------------
@@ -31,15 +34,10 @@ REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 
 # Default model / data paths
 DEFAULT_BASE_VLM = REPO_ROOT / "playground/Pretrained_models/Qwen3-VL-4B-Instruct"
-# HuggingFace repo id for the default VLM. Kept aligned with DEFAULT_BASE_VLM
-# so the auto-download helper below knows what to fetch.
 # IMPORTANT: This must be a Qwen3-VL build that is API-compatible with the
 # StarVLA QwenGR00T framework (which expects Qwen3-VL Instruct + flash-attn).
 DEFAULT_BASE_VLM_REPO_ID = "Qwen/Qwen3-VL-4B-Instruct"
 DEFAULT_CONFIG   = REPO_ROOT / "examples/OpenArm_O6/train_files/starvla_train_openarm_o6.yaml"
-DEFAULT_DATA_ROOT = datasets_root(PROJECT_ROOT)
-DEFAULT_DATASET  = dataset_path("OpenArm_O6_CanSorting_dataset_0408", PROJECT_ROOT)
-DEFAULT_OUT_DIR  = checkpoint_path("starvla", root=PROJECT_ROOT)
 
 # StarVLA entry-point scripts (avoids repeating long paths in every launcher)
 DATALOADER_SCRIPT = REPO_ROOT / "starVLA/dataloader/lerobot_datasets.py"
